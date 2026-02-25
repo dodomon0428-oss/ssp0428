@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주식 데이터 시각화 대시보드</title>
-<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=579"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://apis.google.com/js/api.js" async></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
@@ -645,11 +646,17 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
       ⬆ CSV 업로드
     </label>
     <input type="file" id="csvFileInput" accept=".csv">
+
+    <!-- 구글 드라이브 버튼 -->
+    <button id="drivePickerBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;gap:6px">
+      <svg width="14" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L28 50H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="M43.65 25L29.35 0c-1.35.8-2.5 1.9-3.3 3.3L1.2 45.5C.4 46.9 0 48.45 0 50h28z" fill="#00ac47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 54.5c.8-1.4 1.2-2.95 1.2-4.5H59.3l5.9 12.7z" fill="#ea4335"/><path d="M43.65 25L57.95 0H29.35z" fill="#00832d"/><path d="M59.3 50H87.3L73.55 25H45.3z" fill="#2684fc"/><path d="M43.65 25L29.4 50l14.25 26.8L57.95 50z" fill="#ffba00"/></svg>
+      구글 드라이브
+    </button>
+
     <div class="upload-status">
       <div class="upload-dot" id="uploadDot"></div>
       <span id="uploadStatus">불러오는 중…</span>
     </div>
-    <!-- 캐시 배지: 자동 로드됐을 때만 표시 -->
     <div id="cacheBadge" style="display:none;align-items:center;gap:6px;padding:3px 10px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);border-radius:5px;font-size:11px;color:var(--green)">
       ⚡ 자동 로드됨 · <span id="cacheDateLabel"></span>
     </div>
@@ -1235,7 +1242,136 @@ function initAutocomplete() {
   );
 }
 
-// ── 파일 업로드 ────────────────────────────────────
+// ── 구글 드라이브 Picker ──────────────────────────────
+const GOOGLE_CLIENT_ID = '1048771785529-fglk1slmje7dn110i6a58c1tg0otonu0.apps.googleusercontent.com';
+const GOOGLE_SCOPE     = 'https://www.googleapis.com/auth/drive.readonly';
+let   googleAccessToken = null;
+let   gapiReady = false;
+let   gisReady  = false;
+let   tokenClient = null;
+
+// GAPI 로드
+window.onGapiLoad = function() {
+  gapi.load('picker', () => { gapiReady = true; });
+};
+
+// GIS 로드
+window.onGisLoad = function() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_SCOPE,
+    callback: (resp) => {
+      if (resp.error) { showMsg('구글 로그인 실패: ' + resp.error, true); return; }
+      googleAccessToken = resp.access_token;
+      openDrivePicker();
+    }
+  });
+  gisReady = true;
+};
+
+// GAPI/GIS 스크립트 동적 로드
+(function loadGoogleScripts() {
+  const s1 = document.createElement('script');
+  s1.src = 'https://apis.google.com/js/api.js';
+  s1.onload = () => { gapi.load('picker', () => { gapiReady = true; }); };
+  document.head.appendChild(s1);
+
+  const s2 = document.createElement('script');
+  s2.src = 'https://accounts.google.com/gsi/client';
+  s2.onload = () => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_SCOPE,
+      callback: (resp) => {
+        if (resp.error) { showMsg('구글 로그인 실패: ' + resp.error, true); return; }
+        googleAccessToken = resp.access_token;
+        openDrivePicker();
+      }
+    });
+    gisReady = true;
+  };
+  document.head.appendChild(s2);
+})();
+
+document.getElementById('drivePickerBtn').addEventListener('click', () => {
+  if (!gisReady) { showMsg('구글 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.', true); return; }
+  if (googleAccessToken) {
+    openDrivePicker();
+  } else {
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  }
+});
+
+function openDrivePicker() {
+  if (!gapiReady) { showMsg('Google Picker 로딩 중입니다. 잠시 후 다시 시도하세요.', true); return; }
+  const picker = new google.picker.PickerBuilder()
+    .addView(new google.picker.DocsView()
+      .setIncludeFolders(true)
+      .setMimeTypes('text/csv,text/plain,application/vnd.ms-excel'))
+    .setOAuthToken(googleAccessToken)
+    .setCallback(pickerCallback)
+    .setTitle('CSV 파일 선택')
+    .build();
+  picker.setVisible(true);
+}
+
+async function pickerCallback(data) {
+  if (data.action !== google.picker.Action.PICKED) return;
+  const file = data.docs[0];
+  const fileId = file.id;
+  const fileName = file.name;
+
+  showOverlay('📂', `구글 드라이브에서 불러오는 중...`, `${fileName}`);
+  updateOverlayProgress(0, 20);
+  hideCacheBadge();
+  currentFileName = fileName;
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${googleAccessToken}` } }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    updateOverlayProgress(0, 50);
+
+    allParsedData = [];
+    Papa.parse(text, {
+      skipEmptyLines: true,
+      complete(r) {
+        const rows = r.data;
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (row.length < 5) continue;
+          const code     = row[0] ? row[0].replace(/'/g,'').trim() : '';
+          const name     = row[1] ? row[1].trim() : '알수없음';
+          const price    = parseInt((row[2]||'0').toString().replace(/,/g,''), 10);
+          const accounts = parseInt((row[3]||'0').toString().replace(/,/g,''), 10);
+          const dateStr  = (row[4]||'').trim().split(/[\sT]/)[0];
+          if (isNaN(price) || isNaN(accounts) || !code || !dateStr) continue;
+          allParsedData.push({ code, name, price, accounts, date: dateStr });
+        }
+        updateOverlayProgress(allParsedData.length, 100);
+        if (allParsedData.length === 0) {
+          hideOverlay();
+          showMsg('데이터 구조가 맞지 않습니다.', true);
+          return;
+        }
+        applyLoadedData(fileName, null, false);
+        saveToIDB(fileName);
+      },
+      error(err) {
+        hideOverlay();
+        showMsg('CSV 파싱 오류: ' + err.message, true);
+      }
+    });
+  } catch(e) {
+    hideOverlay();
+    // 토큰 만료 시 재인증
+    googleAccessToken = null;
+    showMsg('불러오기 실패. 다시 버튼을 눌러 재로그인하세요.', true);
+  }
+}
 let currentFileName = '';
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
