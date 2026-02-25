@@ -74,7 +74,7 @@ html, body {
   align-items: center;
   gap: 16px;
   padding: 0 24px;
-  height: 56px;
+  min-height: 56px;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 100;
@@ -117,7 +117,7 @@ html, body {
 
 .btn-upload {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 14px;
+  padding: 7px 14px;
   background: var(--amber);
   color: #111110;
   font-family: 'Noto Sans KR', sans-serif;
@@ -143,7 +143,7 @@ html, body {
 
 .msg-bar {
   margin-left: auto;
-  font-size: 12px; padding: 4px 12px;
+  font-size: 12px; padding: 6px 12px;
   border-radius: 5px; display: none;
 }
 .msg-bar.error { display: block; background: var(--red-dim); color: var(--red); border: 1px solid rgba(248,81,73,.3); }
@@ -204,7 +204,7 @@ html, body {
 }
 
 /* ── 입력 컴포넌트 ───────────────────────────── */
-.field { display: flex; flex-direction: column; gap: 4px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 11px; color: var(--text2); font-weight: 500; letter-spacing: .4px; }
 
 input[type="text"],
@@ -216,7 +216,7 @@ input[type="number"] {
   color: var(--text);
   font-family: 'Noto Sans KR', sans-serif;
   font-size: 13px;
-  padding: 7px 10px;
+  padding: 9px 12px;
   outline: none;
   width: 100%;
   transition: border-color .2s, box-shadow .2s;
@@ -232,8 +232,8 @@ input[type="number"] { width: 72px; text-align: center; }
 
 /* ── 버튼 ────────────────────────────────────── */
 .btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 16px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 16px;
   font-family: 'Noto Sans KR', sans-serif;
   font-size: 12px; font-weight: 600;
   border: none; border-radius: var(--radius);
@@ -255,23 +255,23 @@ input[type="number"] { width: 72px; text-align: center; }
 }
 .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
 
-.btn-sm { padding: 4px 10px; font-size: 11px; }
+.btn-sm { padding: 6px 10px; font-size: 11px; }
 
 /* ── 기간 버튼 그룹 ──────────────────────────── */
 .period-group {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 6px;
   flex-wrap: wrap;
 }
 
 .period-pill {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 12px;
+  padding: 6px 14px;
   background: var(--bg3);
   border: 1px solid var(--border2);
   border-radius: 20px;
   color: var(--text2);
   font-family: 'Noto Sans KR', sans-serif;
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   cursor: pointer;
   transition: all .2s;
 }
@@ -288,7 +288,7 @@ input[type="number"] { width: 72px; text-align: center; }
 
 .period-pill input[type="checkbox"] {
   appearance: none;
-  width: 13px; height: 13px;
+  width: 14px; height: 14px;
   border: 1px solid var(--border2);
   border-radius: 3px;
   background: var(--bg);
@@ -370,7 +370,7 @@ input[type="number"] { width: 72px; text-align: center; }
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
   padding: 16px;
 }
@@ -416,8 +416,8 @@ input[type="number"] { width: 72px; text-align: center; }
 }
 
 .file-input-label {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 14px;
   background: var(--bg3);
   border: 1px solid var(--border2);
   border-radius: var(--radius);
@@ -425,6 +425,7 @@ input[type="number"] { width: 72px; text-align: center; }
   font-size: 12px; font-weight: 600;
   cursor: pointer;
   transition: all .2s;
+  width: 100%;
 }
 .file-input-label:hover { border-color: var(--green); color: var(--green); }
 #batchStockFileInput { display: none; }
@@ -454,12 +455,12 @@ input[type="number"] { width: 72px; text-align: center; }
 
 .table-scroll { overflow-x: auto; max-height: 580px; overflow-y: auto; }
 
-table { width: 100%; border-collapse: collapse; }
+table { width: 100%; border-collapse: collapse; min-width: 800px; } /* 모바일에서 가로 스크롤 허용을 위한 min-width */
 
 thead { position: sticky; top: 0; z-index: 10; }
 thead th {
   background: var(--bg3);
-  padding: 10px 14px;
+  padding: 12px 14px;
   font-size: 11px; font-weight: 600;
   text-transform: uppercase; letter-spacing: .5px;
   color: var(--text2);
@@ -484,7 +485,7 @@ tbody tr {
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: rgba(232,160,32,.06); }
 
-td { padding: 9px 14px; font-size: 13px; }
+td { padding: 12px 14px; font-size: 13px; }
 td.num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
 td.center { text-align: center; }
 td.code { color: var(--text3); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
@@ -527,8 +528,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 /* ── 자동완성 검색박스 ───────────────────────── */
 .search-wrap {
   position: relative;
-  min-width: 260px;
-  flex: 1;
+  width: 100%;
 }
 .search-wrap input {
   width: 100%;
@@ -539,9 +539,10 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   right: 8px; top: 50%;
   transform: translateY(-50%);
   background: none; border: none;
-  color: var(--text3); font-size: 14px;
+  color: var(--text3); font-size: 16px;
   cursor: pointer; line-height: 1;
   display: none;
+  padding: 4px;
 }
 .search-clear:hover { color: var(--text2); }
 
@@ -553,7 +554,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   border-radius: var(--radius);
   box-shadow: 0 8px 24px rgba(0,0,0,.5);
   z-index: 500;
-  max-height: 320px;
+  max-height: 280px;
   overflow-y: auto;
   display: none;
 }
@@ -563,7 +564,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 12px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   transition: background .12s;
@@ -578,7 +579,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   background: var(--bg3);
   border: 1px solid var(--border2);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 2px 6px;
   flex-shrink: 0;
   min-width: 58px;
   text-align: center;
@@ -604,6 +605,67 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   text-align: center;
   color: var(--text3);
   font-size: 12px;
+}
+
+/* ── 모바일 환경 대응 최적화 (갤럭시 S24 및 스마트폰 타겟) ── */
+@media (max-width: 768px) {
+  .app-header {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    height: auto;
+    gap: 12px;
+  }
+  .header-logo { width: 100%; justify-content: flex-start; }
+  .header-sep { display: none; }
+  
+  .upload-zone {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .btn-upload, #drivePickerBtn, #clearCacheBtn {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+    font-size: 13px;
+  }
+  
+  .upload-status { width: 100%; justify-content: flex-start; }
+  .msg-bar { width: 100%; margin-left: 0; text-align: center; }
+  
+  .tab-nav { padding: 0 12px; }
+  .tab-btn { flex: 1; text-align: center; padding: 12px 8px; font-size: 13px; }
+  
+  .page { padding: 16px 12px; }
+  
+  .chart-controls, .table-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .field { min-width: 100% !important; }
+  .ctrl-divider { display: none; }
+  
+  .btn { width: 100%; }
+  #addTableStockBtn { width: 100%; margin-top: 4px; }
+  
+  .period-group { justify-content: flex-start; width: 100%; }
+  
+  .chart-inner { height: 320px; padding: 12px 8px; }
+  .chart-title-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  
+  .summary-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .summary-grid { grid-template-columns: 1fr; }
+  
+  .table-period-bar { flex-direction: column; align-items: flex-start; padding: 12px; gap: 12px; }
+  
+  td, th { padding: 10px; font-size: 12px; }
+  td.num { font-size: 11px; }
+  
+  /* 테이블 관리 컬럼 버튼 모바일 조정 */
+  td.center .btn-sm { width: 100%; padding: 8px 0; }
 }
 </style>
 </head>
@@ -648,7 +710,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
     <input type="file" id="csvFileInput" accept=".csv">
 
     <!-- 구글 드라이브 버튼 -->
-    <button id="drivePickerBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;gap:6px">
+    <button id="drivePickerBtn" class="btn btn-ghost" style="white-space:nowrap;gap:6px">
       <svg width="14" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L28 50H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="M43.65 25L29.35 0c-1.35.8-2.5 1.9-3.3 3.3L1.2 45.5C.4 46.9 0 48.45 0 50h28z" fill="#00ac47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 54.5c.8-1.4 1.2-2.95 1.2-4.5H59.3l5.9 12.7z" fill="#ea4335"/><path d="M43.65 25L57.95 0H29.35z" fill="#00832d"/><path d="M59.3 50H87.3L73.55 25H45.3z" fill="#2684fc"/><path d="M43.65 25L29.4 50l14.25 26.8L57.95 50z" fill="#ffba00"/></svg>
       구글 드라이브
     </button>
@@ -657,10 +719,10 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
       <div class="upload-dot" id="uploadDot"></div>
       <span id="uploadStatus">불러오는 중…</span>
     </div>
-    <div id="cacheBadge" style="display:none;align-items:center;gap:6px;padding:3px 10px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);border-radius:5px;font-size:11px;color:var(--green)">
+    <div id="cacheBadge" style="display:none;align-items:center;gap:6px;padding:5px 10px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);border-radius:5px;font-size:12px;color:var(--green)">
       ⚡ 자동 로드됨 · <span id="cacheDateLabel"></span>
     </div>
-    <button id="clearCacheBtn" style="display:none" class="btn btn-ghost btn-sm" title="브라우저에 저장된 데이터를 삭제합니다">
+    <button id="clearCacheBtn" style="display:none" class="btn btn-ghost" title="브라우저에 저장된 데이터를 삭제합니다">
       🗑 저장 초기화
     </button>
   </div>
@@ -682,7 +744,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 
   <!-- 컨트롤 패널 -->
   <div class="chart-controls">
-    <div class="field" style="min-width:260px; flex:1">
+    <div class="field">
       <label>종목 검색 (코드 또는 종목명)</label>
       <div class="search-wrap" id="chartSearchWrap">
         <input type="text" id="searchInput" placeholder="예: 005930 또는 삼성전자" autocomplete="off">
@@ -692,17 +754,17 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
     </div>
     <div class="field">
       <label>시작일</label>
-      <input type="date" id="startDateInput" style="width:150px">
+      <input type="date" id="startDateInput">
     </div>
     <div class="field">
       <label>종료일</label>
-      <input type="date" id="endDateInput" style="width:150px">
+      <input type="date" id="endDateInput">
     </div>
     <button id="searchBtn" class="btn btn-primary">검색</button>
     <button id="exportBtn" class="btn btn-ghost" style="display:none">⬇ CSV 다운로드</button>
 
-    <div style="width:100%; border-top:1px solid var(--border); padding-top:12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-      <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">기간 선택</span>
+    <div style="width:100%; border-top:1px solid var(--border); padding-top:12px; display:flex; flex-direction:column; gap:8px;">
+      <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">기간 선택</span>
       <div class="period-group">
         <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="20"><span class="period-btn" data-days="20">20일</span></label>
         <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="40"><span class="period-btn" data-days="40">40일</span></label>
@@ -754,36 +816,36 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="table-controls">
     <div class="field">
       <label>비교 시작일</label>
-      <input type="date" id="globalStartDate" style="width:150px">
+      <input type="date" id="globalStartDate">
     </div>
     <div class="field">
       <label>비교 종료일</label>
-      <input type="date" id="globalEndDate" style="width:150px">
+      <input type="date" id="globalEndDate">
     </div>
 
     <div class="ctrl-divider"></div>
 
-    <div class="field" style="min-width:200px">
+    <div class="field">
       <label>수동 종목 추가 (코드 또는 종목명)</label>
       <div class="search-wrap" id="tableSearchWrap">
         <input type="text" id="globalSearchInput" placeholder="코드 또는 종목명" autocomplete="off">
         <button class="search-clear" id="tableSearchClear">✕</button>
         <div class="ac-dropdown" id="tableAcDropdown"></div>
       </div>
+      <button id="addTableStockBtn" class="btn btn-primary">추가</button>
     </div>
-    <button id="addTableStockBtn" class="btn btn-primary" style="align-self:flex-end">추가</button>
 
     <div class="ctrl-divider"></div>
 
-    <div class="field" style="align-self:flex-end">
+    <div class="field">
       <label>종목 일괄 추가</label>
       <label class="file-input-label" for="batchStockFileInput">📂 CSV 일괄 추가</label>
       <input type="file" id="batchStockFileInput" accept=".csv">
     </div>
 
-    <div style="margin-left:auto;display:flex;gap:8px;align-self:flex-end;">
-      <button id="resetSortBtn" class="btn btn-ghost">↺ 정렬 초기화</button>
-      <button id="clearTableBtn" class="btn btn-danger">전체 비우기</button>
+    <div style="display:flex;gap:8px;width:100%;margin-top:8px">
+      <button id="resetSortBtn" class="btn btn-ghost" style="flex:1">↺ 정렬 초기화</button>
+      <button id="clearTableBtn" class="btn btn-danger" style="flex:1">전체 비우기</button>
     </div>
   </div>
 
@@ -844,7 +906,6 @@ let expandedTableCharts = new Set();
 let tableChartInstances = {};
 
 // 종목 인덱스: 코드 → { recentName, allNames: Set, recentDate }
-// 데이터 로드 후 buildStockIndex()로 구성
 let stockIndex = new Map();
 
 // Chart.js 전역 기본값
@@ -937,7 +998,6 @@ function hideOverlay() {
 async function saveToIDB(fileName) {
   showOverlay('💾', 'IndexedDB에 저장 중...', `${allParsedData.length.toLocaleString()}건 저장 중. 잠시만 기다려주세요.`);
   updateOverlayProgress(0, 20);
-  // 약간의 딜레이로 UI가 그려지게
   await new Promise(r => setTimeout(r, 50));
   try {
     updateOverlayProgress(allParsedData.length, 60);
@@ -993,7 +1053,6 @@ function applyLoadedData(label, savedAt, fromCache) {
   document.getElementById('combinedChartTitle').textContent = '종목 추이 종합';
   buildStockIndex();
   initAutocomplete();
-  // 테이블 탭이 현재 활성이면 날짜 자동 세팅
   if (document.getElementById('table-view').classList.contains('active')) {
     autoSetTableDatesIfEmpty();
   } else if (tableSelectedStocks.size > 0) {
@@ -1029,7 +1088,6 @@ document.getElementById('clearCacheBtn').addEventListener('click', async () => {
   showMsg('저장된 데이터가 삭제되었습니다.', false);
 });
 
-// 페이지 로드 시 IndexedDB 자동 복원
 tryLoadFromIDB();
 
 // ── 탭 ────────────────────────────────────────────
@@ -1039,19 +1097,16 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     this.classList.add('active');
     document.getElementById(this.dataset.target).classList.add('active');
-    // 테이블 탭 전환 시: 날짜 미설정이면 자동으로 최근 20일 세팅 후 렌더
     if (this.dataset.target === 'table-view' && allParsedData.length > 0) {
       autoSetTableDatesIfEmpty();
     }
   });
 });
 
-/** 테이블 날짜가 비어있으면 자동으로 전체 기간 세팅 */
 function autoSetTableDatesIfEmpty() {
   const startEl = document.getElementById('globalStartDate');
   const endEl   = document.getElementById('globalEndDate');
   if (startEl.value && endEl.value) {
-    // 이미 날짜가 있으면 그냥 렌더만
     if (tableSelectedStocks.size > 0) renderGlobalTable();
     return;
   }
@@ -1059,7 +1114,6 @@ function autoSetTableDatesIfEmpty() {
   if (!dates.length) return;
   endEl.value   = dates.at(-1);
   startEl.value = dates[0];
-  // 전체 버튼 active 표시
   document.querySelectorAll('.global-period-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.days === 'all');
   });
@@ -1067,11 +1121,10 @@ function autoSetTableDatesIfEmpty() {
 }
 
 // ══════════════════════════════════════════════════════
-// 종목 인덱스: 코드별 이름 이력 관리
+// 종목 인덱스
 // ══════════════════════════════════════════════════════
 function buildStockIndex() {
   stockIndex.clear();
-  // 날짜 오름차순 정렬 후 처리 → 마지막이 가장 최신 이름
   const sorted = [...allParsedData].sort((a,b) => a.date < b.date ? -1 : 1);
   for (const row of sorted) {
     if (!stockIndex.has(row.code)) {
@@ -1079,7 +1132,7 @@ function buildStockIndex() {
     } else {
       const entry = stockIndex.get(row.code);
       entry.allNames.add(row.name);
-      entry.recentName = row.name; // 날짜 오름차순이므로 마지막 = 최신
+      entry.recentName = row.name;
     }
   }
 }
@@ -1087,12 +1140,6 @@ function buildStockIndex() {
 // ══════════════════════════════════════════════════════
 // 자동완성 공통 엔진
 // ══════════════════════════════════════════════════════
-/**
- * @param {string} inputId       - 입력 필드 ID
- * @param {string} dropdownId    - 드롭다운 div ID
- * @param {string} clearBtnId    - X 버튼 ID
- * @param {function} onSelect    - 항목 선택 콜백 (code, recentName) => void
- */
 function bindAutocomplete(inputId, dropdownId, clearBtnId, onSelect) {
   const input    = document.getElementById(inputId);
   const dropdown = document.getElementById(dropdownId);
@@ -1117,12 +1164,10 @@ function bindAutocomplete(inputId, dropdownId, clearBtnId, onSelect) {
     const lq = q.toLowerCase();
     const results = [];
     for (const [code, entry] of stockIndex) {
-      // 코드 앞부분 일치 or 어떤 이름에서라도 포함 일치
       const codeMatch = code.toLowerCase().includes(lq);
       let matchedAlias = null;
       for (const n of entry.allNames) {
         if (n.toLowerCase().includes(lq)) {
-          // 현재 대표명이 아닌 과거 이름에서 매칭됐으면 표시용으로 기억
           if (n !== entry.recentName) matchedAlias = n;
           break;
         }
@@ -1132,7 +1177,6 @@ function bindAutocomplete(inputId, dropdownId, clearBtnId, onSelect) {
           allNamesCount: entry.allNames.size });
       }
     }
-    // 코드 완전 일치 → 최상단, 이름 앞부분 일치 → 그 다음, 나머지
     results.sort((a, b) => {
       const aCode = a.code.toLowerCase().startsWith(lq) ? 0 : 1;
       const bCode = b.code.toLowerCase().startsWith(lq) ? 0 : 1;
@@ -1141,7 +1185,7 @@ function bindAutocomplete(inputId, dropdownId, clearBtnId, onSelect) {
       const bName = b.recentName.toLowerCase().startsWith(lq) ? 0 : 1;
       return aName - bName;
     });
-    return results.slice(0, 30); // 최대 30개
+    return results.slice(0, 30);
   }
 
   function renderDropdown(q) {
@@ -1168,7 +1212,6 @@ function bindAutocomplete(inputId, dropdownId, clearBtnId, onSelect) {
     dropdown.classList.add('open');
     clearBtn.style.display = '';
 
-    // 클릭 이벤트
     dropdown.querySelectorAll('.ac-item').forEach(el => {
       el.addEventListener('mousedown', e => {
         e.preventDefault();
@@ -1225,16 +1268,13 @@ function bindAutocomplete(inputId, dropdownId, clearBtnId, onSelect) {
 }
 
 function initAutocomplete() {
-  // 탭1: 차트 검색
   bindAutocomplete('searchInput', 'chartAcDropdown', 'chartSearchClear',
     (code) => {
-      // 코드를 hidden value로 저장 후 자동 검색
       document.getElementById('searchInput').dataset.selectedCode = code;
       searchAndRender();
     }
   );
 
-  // 탭2: 테이블 종목 추가
   bindAutocomplete('globalSearchInput', 'tableAcDropdown', 'tableSearchClear',
     (code) => {
       document.getElementById('globalSearchInput').dataset.selectedCode = code;
@@ -1250,12 +1290,10 @@ let   gapiReady = false;
 let   gisReady  = false;
 let   tokenClient = null;
 
-// GAPI 로드
 window.onGapiLoad = function() {
   gapi.load('picker', () => { gapiReady = true; });
 };
 
-// GIS 로드
 window.onGisLoad = function() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
@@ -1269,7 +1307,6 @@ window.onGisLoad = function() {
   gisReady = true;
 };
 
-// GAPI/GIS 스크립트 동적 로드
 (function loadGoogleScripts() {
   const s1 = document.createElement('script');
   s1.src = 'https://apis.google.com/js/api.js';
@@ -1367,11 +1404,11 @@ async function pickerCallback(data) {
     });
   } catch(e) {
     hideOverlay();
-    // 토큰 만료 시 재인증
     googleAccessToken = null;
     showMsg('불러오기 실패. 다시 버튼을 눌러 재로그인하세요.', true);
   }
 }
+
 let currentFileName = '';
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
@@ -1388,7 +1425,6 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
     '대용량 파일입니다. 완료될 때까지 창을 닫지 마세요.');
 
   let rowCount = 0;
-  // 파일 크기 기준 예상 행 수 (행당 약 60바이트 추정)
   const estimatedRows = Math.max(1, Math.round(file.size / 60));
 
   Papa.parse(file, {
@@ -1416,9 +1452,7 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
         showMsg("유효한 데이터 구조가 없습니다.", true);
         return;
       }
-      // 헤더 행 제외 처리 (첫 행이 숫자가 아니면 이미 제외됨)
       applyLoadedData(currentFileName, null, false);
-      // IndexedDB 저장 (비동기)
       saveToIDB(currentFileName);
     },
     error(err) {
@@ -1440,7 +1474,6 @@ function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 // 탭 1: 차트 뷰
 // ══════════════════════════════════════════════════════
 
-// 기간 버튼 클릭
 document.querySelectorAll('.period-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     if (!allParsedData.length) return showMsg("CSV 파일을 먼저 업로드하세요.", true);
@@ -1471,7 +1504,6 @@ document.querySelectorAll('.period-btn').forEach(btn => {
   });
 });
 
-// 체크박스 변경
 document.querySelectorAll('.period-checkbox').forEach(c => c.addEventListener('change', updateCheckboxSummaries));
 
 document.getElementById('startDateInput').addEventListener('change', autoSearch);
@@ -1488,7 +1520,6 @@ function autoSearch() {
 function searchAndRender() {
   chartClickStep = 0;
   const input = document.getElementById('searchInput');
-  // 자동완성으로 선택된 코드 우선, 없으면 입력값 그대로 사용
   const code  = input.dataset.selectedCode || input.value.trim();
   const start = document.getElementById('startDateInput').value;
   const end   = document.getElementById('endDateInput').value;
@@ -1507,7 +1538,6 @@ function searchAndRender() {
   data.sort((a,b) => new Date(a.date) - new Date(b.date));
   currentFilteredData = data;
   document.getElementById('exportBtn').style.display = '';
-  // stockIndex의 최신 이름 사용 (이름 변경 이력이 있어도 항상 최근 이름 표시)
   const recentName = stockIndex.get(code)?.recentName || data.at(-1).name;
   document.getElementById('combinedChartTitle').textContent = `[${recentName}] 현재가 및 보유계좌수 추이`;
   renderMainChart(data.map(d=>d.date), data.map(d=>d.accounts), data.map(d=>d.price));
@@ -1613,7 +1643,6 @@ function updateCheckboxSummaries() {
   document.getElementById('summaryMaxAccounts').textContent = maxAcc.toLocaleString();
   list.innerHTML = '';
 
-  // 달력 지정 기간 카드
   if (currentFilteredData.length && maxAcc > 0) {
     const s = currentFilteredData[0], e = currentFilteredData.at(-1);
     const val = ((s.accounts - e.accounts) * 100) / maxAcc;
@@ -1683,16 +1712,16 @@ function exportToCSV() {
 // ══════════════════════════════════════════════════════
 
 document.getElementById('addTableStockBtn').addEventListener('click', () => {
-  if (!allParsedData.length) { alert("먼저 CSV 파일을 업로드하세요."); return; }
+  if (!allParsedData.length) { showMsg("먼저 CSV 파일을 업로드하세요.", true); return; }
   const input = document.getElementById('globalSearchInput');
   const code  = input.dataset.selectedCode || input.value.trim();
   const start = document.getElementById('globalStartDate').value;
   const end   = document.getElementById('globalEndDate').value;
-  if (!start || !end) { alert("비교 시작일과 종료일을 선택하세요."); return; }
-  if (new Date(start) > new Date(end)) { alert("시작일이 종료일보다 늦을 수 없습니다."); return; }
-  if (!code) { alert("추가할 종목을 검색하여 선택하세요."); return; }
-  if (!allParsedData.some(d => d.code === code)) { alert(`'${code}' 데이터가 없습니다.`); return; }
-  if (tableSelectedStocks.has(code)) { alert("이미 추가된 종목입니다."); return; }
+  if (!start || !end) { showMsg("비교 시작일과 종료일을 선택하세요.", true); return; }
+  if (new Date(start) > new Date(end)) { showMsg("시작일이 종료일보다 늦을 수 없습니다.", true); return; }
+  if (!code) { showMsg("추가할 종목을 검색하여 선택하세요.", true); return; }
+  if (!allParsedData.some(d => d.code === code)) { showMsg(`'${code}' 데이터가 없습니다.`, true); return; }
+  if (tableSelectedStocks.has(code)) { showMsg("이미 추가된 종목입니다.", true); return; }
   tableSelectedStocks.add(code);
   input.value = '';
   input.dataset.selectedCode = '';
@@ -1710,7 +1739,7 @@ document.getElementById('resetSortBtn').addEventListener('click', () => {
 
 document.getElementById('batchStockFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0]; if (!file) return;
-  if (!allParsedData.length) { alert("메인 데이터를 먼저 업로드하세요."); this.value=''; return; }
+  if (!allParsedData.length) { showMsg("메인 데이터를 먼저 업로드하세요.", true); this.value=''; return; }
   Papa.parse(file, {
     skipEmptyLines: true, encoding: "UTF-8",
     complete(results) {
@@ -1722,18 +1751,17 @@ document.getElementById('batchStockFileInput').addEventListener('change', functi
           if (!tableSelectedStocks.has(code)) { tableSelectedStocks.add(code); added++; }
         } else { missing++; }
       });
-      if (added > 0) { renderGlobalTable(); saveLocalStocks(); alert(`${added}개 추가 완료 (누락: ${missing}건)`); }
-      else alert("추가할 종목이 없습니다.");
+      if (added > 0) { renderGlobalTable(); saveLocalStocks(); showMsg(`${added}개 추가 완료 (누락: ${missing}건)`, false); }
+      else showMsg("추가할 종목이 없습니다.", true);
       e.target.value = '';
     },
-    error(err) { alert("파싱 오류: " + err.message); e.target.value = ''; }
+    error(err) { showMsg("파싱 오류: " + err.message, true); e.target.value = ''; }
   });
 });
 
 document.querySelectorAll('.global-period-btn').forEach(btn => {
   btn.addEventListener('click', function() {
-    if (!allParsedData.length) { alert("데이터를 먼저 로드하세요."); return; }
-    // 이전 active 제거
+    if (!allParsedData.length) { showMsg("데이터를 먼저 로드하세요.", true); return; }
     document.querySelectorAll('.global-period-btn').forEach(b => b.classList.remove('active'));
     this.classList.add('active');
 
@@ -1771,7 +1799,6 @@ function handleTableSort(col) {
   renderGlobalTable();
 }
 
-// 테이블 클릭 이벤트 (차트 토글 + 삭제)
 document.getElementById('globalTableBody').addEventListener('click', function(e) {
   const cell = e.target.closest('.stock-name-cell');
   if (cell) { toggleTableChart(cell.dataset.code); return; }
@@ -1876,23 +1903,19 @@ function renderGlobalTable() {
   document.getElementById('thIntervalLabel').textContent = `(${intervalDays}일)`;
   tbody.innerHTML = '';
 
-  // 정렬 아이콘
   const icon = dir => dir === 'desc' ? '▼' : '▲';
   document.getElementById('iconSortPeriod').textContent  = currentSortColumn==='accValueNum'      ? icon(currentSortDirection) : '';
   document.getElementById('iconSortCurrent').textContent = currentSortColumn==='currentAccValueNum'? icon(currentSortDirection) : '';
   document.getElementById('iconSortDaily').textContent   = currentSortColumn==='dailyAccValueNum'  ? icon(currentSortDirection) : '';
 
-  // 헤더 강조
   document.getElementById('thSortPeriod').className  = 'num sortable' + (currentSortColumn==='accValueNum'?       ' sort-active':'');
   document.getElementById('thSortCurrent').className = 'num sortable' + (currentSortColumn==='currentAccValueNum'?' sort-active':'');
   document.getElementById('thSortDaily').className   = 'num sortable' + (currentSortColumn==='dailyAccValueNum'?  ' sort-active-purple':'');
 
-  // 데이터 계산
   const rows = [];
   tableSelectedStocks.forEach(code => {
     const records = allParsedData.filter(d => d.code === code);
     if (!records.length) return;
-    // stockIndex의 최신 이름 사용 (이름 변경 이력 있어도 최근 이름으로 표시)
     const name   = stockIndex.get(code)?.recentName || records[0].name;
     const minAcc = records.reduce((m,d) => d.accounts<m?d.accounts:m, records[0].accounts);
     const maxAcc = records.reduce((m,d) => d.accounts>m?d.accounts:m, 0);
