@@ -1630,15 +1630,9 @@ function calculateWaves(data) {
 // ══════════════════════════════════════════════════════
 // 파동 UI 렌더링 함수
 // ══════════════════════════════════════════════════════
-function updateWaveInfoUI(markers, data, isAllPeriod) {
+function updateWaveInfoUI(markers, data) {
   const container = document.getElementById('waveInfoContainer');
   const list = document.getElementById('waveInfoList');
-
-  // 전체 기간이 아니면 패널 숨김
-  if (!isAllPeriod) {
-    container.classList.remove('visible');
-    return;
-  }
 
   let hasWaves = false;
   let html = '';
@@ -1772,26 +1766,36 @@ function searchAndRender() {
   if (!allParsedData.length) return showMsg("CSV 파일을 업로드하세요.", true);
   hideMsg();
 
+  // 1. 전체 데이터 추출 및 날짜순 정렬
   const full = allParsedData.filter(d => d.code === code);
   if (!full.length) return showMsg("해당 종목 데이터가 없습니다.", true);
+  full.sort((a,b) => new Date(a.date) - new Date(b.date));
 
+  // 2. 전체 데이터를 기준으로 진짜 파동의 위치를 완벽하게 '사전 계산'
+  const fullWaveMarkers = calculateWaves(full);
+
+  // 3. 차트에 보여줄 데이터만 기간 필터링
   let data = [...full];
   if (start) data = data.filter(d => new Date(d.date) >= new Date(start));
   if (end)   data = data.filter(d => new Date(d.date) <= new Date(end));
   if (!data.length) { document.getElementById('exportBtn').style.display='none'; return showMsg("선택 기간 내 데이터가 없습니다.", true); }
 
-  data.sort((a,b) => new Date(a.date) - new Date(b.date));
   currentFilteredData = data;
   document.getElementById('exportBtn').style.display = '';
   const recentName = stockIndex.get(code)?.recentName || data.at(-1).name;
   document.getElementById('combinedChartTitle').textContent = `[${recentName}] 현재가 및 보유계좌수 추이`;
   
-  const isAllPeriod = (currentFilteredData.length === full.length);
-  const waveMarkers = isAllPeriod ? calculateWaves(currentFilteredData) : new Array(currentFilteredData.length).fill(null);
+  // 4. 필터링된 데이터 영역 안에 사전 계산해둔 진짜 파동이 존재하는지 매핑하여 추출
+  const filteredWaveMarkers = currentFilteredData.map(d => {
+    const idx = full.findIndex(fd => fd.date === d.date);
+    return idx !== -1 ? fullWaveMarkers[idx] : null;
+  });
   
-  renderMainChart(data.map(d=>d.date), data.map(d=>d.accounts), data.map(d=>d.price), waveMarkers);
+  renderMainChart(data.map(d=>d.date), data.map(d=>d.accounts), data.map(d=>d.price), filteredWaveMarkers);
   updateCheckboxSummaries();
-  updateWaveInfoUI(waveMarkers, currentFilteredData, isAllPeriod);
+  
+  // 5. 하단 파동 정보 UI는 기간 선택과 무관하게 전체 이력을 고정으로 표시
+  updateWaveInfoUI(fullWaveMarkers, full);
 }
 
 function renderMainChart(labels, accountsData, priceData, waveMarkers) {
@@ -2076,8 +2080,16 @@ function renderTableInlineChart(code) {
   if (!validDates.length) return;
 
   const s = validDates[0], e = validDates.at(-1);
-  let data = allParsedData.filter(d => d.code === code && d.date >= s && d.date <= e);
-  data.sort((a,b) => new Date(a.date)-new Date(b.date));
+
+  // 1. 전체 데이터 추출 및 정렬
+  const fullData = allParsedData.filter(d => d.code === code);
+  fullData.sort((a,b) => new Date(a.date)-new Date(b.date));
+  
+  // 2. 파동 사전 계산
+  const fullWaveMarkers = calculateWaves(fullData);
+
+  // 3. 렌더링 데이터 필터링
+  let data = fullData.filter(d => d.date >= s && d.date <= e);
   if (!data.length) return;
 
   const canvas = document.getElementById(`table-chart-${code}`);
@@ -2089,9 +2101,11 @@ function renderTableInlineChart(code) {
   const range = maxP - minP;
   const pad = range === 0 ? minP * .1 : range * .5;
 
-  const fullData = allParsedData.filter(d => d.code === code);
-  const isFullRange = data.length === fullData.length;
-  const waveMarkers = isFullRange ? calculateWaves(data) : [];
+  // 4. 뷰포트 내 파동만 추출
+  const filteredWaveMarkers = data.map(d => {
+    const idx = fullData.findIndex(fd => fd.date === d.date);
+    return idx !== -1 ? fullWaveMarkers[idx] : null;
+  });
 
   tableChartInstances[code] = new Chart(canvas.getContext('2d'), {
     type: 'line',
@@ -2107,7 +2121,7 @@ function renderTableInlineChart(code) {
       plugins: {
         legend:{display:false},
         tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 },
-        waveMarkers: waveMarkers
+        waveMarkers: filteredWaveMarkers
       },
       interaction: { mode:'index', intersect:false },
       scales: {
