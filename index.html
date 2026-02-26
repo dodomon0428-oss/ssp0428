@@ -378,6 +378,25 @@ input[type="number"] { width: 72px; text-align: center; }
 .summary-card-value.up { color: var(--blue); }
 .summary-card-value.down { color: var(--red); }
 
+/* ── 파동 이력 리스트 ───────────────────────── */
+.wave-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.wave-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px; background: var(--bg3);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--border2);
+}
+.wave-item.start { border-left-color: var(--green); }
+.wave-item.complete { border-left-color: var(--red); }
+.wave-item-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.wave-item-date { font-size: 11px; color: var(--text2); }
+.wave-item-price { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; }
+
 /* ── 탭 2: 테이블 뷰 ─────────────────────────── */
 .table-controls {
   display: flex;
@@ -806,6 +825,14 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
       <span class="summary-max">전체 기간 최대 보유계좌수: <b id="summaryMaxAccounts">-</b> 계좌</span>
     </div>
     <div class="summary-grid" id="summaryMetricsList"></div>
+  </div>
+
+  <!-- 파동 이력 카드 -->
+  <div class="summary-box" id="waveInfoContainer">
+    <div class="summary-header">
+      <span class="summary-header-title">🌊 파동 진행 이력</span>
+    </div>
+    <div class="wave-list" id="waveInfoList"></div>
   </div>
 
 </div>
@@ -1601,6 +1628,51 @@ function calculateWaves(data) {
 }
 
 // ══════════════════════════════════════════════════════
+// 파동 UI 렌더링 함수
+// ══════════════════════════════════════════════════════
+function updateWaveInfoUI(markers, data, isAllPeriod) {
+  const container = document.getElementById('waveInfoContainer');
+  const list = document.getElementById('waveInfoList');
+
+  // 전체 기간이 아니면 패널 숨김
+  if (!isAllPeriod) {
+    container.classList.remove('visible');
+    return;
+  }
+
+  let hasWaves = false;
+  let html = '';
+  
+  // markers 배열을 순회하며 파동 이력을 추출
+  for (let i = 0; i < markers.length; i++) {
+    if (markers[i]) {
+      hasWaves = true;
+      const markerTexts = markers[i].split(' / ');
+      
+      markerTexts.forEach(txt => {
+        const isComplete = txt.includes('완료');
+        const borderClass = isComplete ? 'complete' : 'start';
+        html += `
+          <div class="wave-item ${borderClass}">
+            <div>
+              <div class="wave-item-title">${txt}</div>
+              <div class="wave-item-date">${data[i].date}</div>
+            </div>
+            <div class="wave-item-price">${data[i].price.toLocaleString()}원</div>
+          </div>`;
+      });
+    }
+  }
+
+  if (hasWaves) {
+    list.innerHTML = html;
+    container.classList.add('visible');
+  } else {
+    container.classList.remove('visible');
+  }
+}
+
+// ══════════════════════════════════════════════════════
 // 탭 1: 차트 뷰 이벤트 처리
 // ══════════════════════════════════════════════════════
 
@@ -1715,20 +1787,20 @@ function searchAndRender() {
   document.getElementById('combinedChartTitle').textContent = `[${recentName}] 현재가 및 보유계좌수 추이`;
   
   const isAllPeriod = (currentFilteredData.length === full.length);
-  renderMainChart(data.map(d=>d.date), data.map(d=>d.accounts), data.map(d=>d.price), isAllPeriod);
+  const waveMarkers = isAllPeriod ? calculateWaves(currentFilteredData) : new Array(currentFilteredData.length).fill(null);
+  
+  renderMainChart(data.map(d=>d.date), data.map(d=>d.accounts), data.map(d=>d.price), waveMarkers);
   updateCheckboxSummaries();
+  updateWaveInfoUI(waveMarkers, currentFilteredData, isAllPeriod);
 }
 
-function renderMainChart(labels, accountsData, priceData, isAllPeriod) {
+function renderMainChart(labels, accountsData, priceData, waveMarkers) {
   const ctx = document.getElementById('combinedChart').getContext('2d');
   if (combinedChartInstance) combinedChartInstance.destroy();
 
   const minP = Math.min(...priceData), maxP = Math.max(...priceData);
   const range = maxP - minP;
   const pad = range === 0 ? minP * 0.1 : range * 0.5;
-
-  // 전체 기간일 때만 실행
-  const waveMarkers = isAllPeriod ? calculateWaves(currentFilteredData) : new Array(currentFilteredData.length).fill(null);
 
   combinedChartInstance = new Chart(ctx, {
     type: 'line',
