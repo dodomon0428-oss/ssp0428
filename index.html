@@ -1531,56 +1531,48 @@ function showMsg(msg, isError) {
 function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 
 // ══════════════════════════════════════════════════════
-// 파동 알고리즘 (소급 추적 및 목표 달성 검증 로직으로 전면 개편)
+// 파동 탐색 알고리즘 (순방향/소급 탐색으로 전면 수정)
 // ══════════════════════════════════════════════════════
 function calculateWaves(data) {
   let markers = new Array(data.length).fill(null);
   if (data.length === 0) return markers;
 
-  // 1. 전체 데이터 기준 절대 최저점 탐색 (가장 최초의 파동 시작점)
-  let absMin = Infinity;
-  let absMinIdx = -1;
-  for(let i=0; i<data.length; i++) {
-    if(data[i].price < absMin) { absMin = data[i].price; absMinIdx = i; }
-  }
-
   let currentWave = 1;
-  let currentStartPrice = data[absMinIdx].price;
-  markers[absMinIdx] = "파동시작";
-
-  let state = 'SEEK_TARGET';
+  let state = 'SEEK_FIRST_TARGET';
   
-  // 파동 완료 후, 다음 파동의 시작이 될 '진짜 저점'을 소급(Retroactive) 추적하기 위한 변수
-  let candMin = Infinity; 
-  let candMinIdx = -1;
+  // 첫 날짜의 가격을 최초의 최저점 후보로 설정
+  let candMin = data[0].price;
+  let candMinIdx = 0;
+  let currentStartPrice = candMin;
 
-  for(let i = absMinIdx + 1; i < data.length; i++) {
+  for (let i = 1; i < data.length; i++) {
     let p = data[i].price;
 
-    if (state === 'SEEK_TARGET') {
-      if (p >= currentStartPrice * 2) {
-        // 목표가(2배) 달성 시 완료 마킹
-        if (markers[i]) markers[i] += " / " + currentWave + "차완료";
-        else markers[i] = currentWave + "차완료";
-        
-        // 완료된 직후부터 다음 파동의 바닥을 찾기 시작 (최초 후보는 현재가)
+    if (state === 'SEEK_FIRST_TARGET') {
+      if (p <= candMin) {
+        // 아직 파동 시작점(2배 도달)을 찾지 못한 상태에서 가격이 더 떨어지면 후보를 갱신
+        candMin = p;
+        candMinIdx = i;
+      } else if (p >= candMin * 2) {
+        // 드디어 현재 최저점 대비 2배의 가격 달성! 첫 번째 파동으로 인정
+        markers[candMinIdx] = "파동시작";
+        currentStartPrice = candMin;
+        markers[i] = "1차완료";
+
         state = 'SEEK_DIP';
         candMin = p;
         candMinIdx = i;
       }
     } else if (state === 'SEEK_DIP') {
-      // 1. 현재까지 확인된 최저점 후보보다 더 떨어지면 갱신
       if (p <= candMin) {
         candMin = p;
         candMinIdx = i;
       }
-      
-      // 2. 만약 어떤 시점에서 가격이 그 최저점 후보의 2배에 도달했다면?
-      // 즉, 그 최저점 후보가 '새로운 파동의 진짜 시작점'이었음이 수학적으로 확인된 순간!
+
       if (p >= candMin * 2) {
-        
-        // 사용자가 요청한 예외 규칙: 완료 후 파동 저점이 '직전 파동의 시작가'보다 낮으면 1차로 리셋
+        // 다음 파동 발견
         if (candMin < currentStartPrice) {
+          // 직전 시작가보다 이번 바닥이 더 깊으면 1차부터 리셋
           currentWave = 1;
           let txt = "파동시작";
           if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
@@ -1591,14 +1583,12 @@ function calculateWaves(data) {
           if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
           else markers[candMinIdx] = txt;
         }
-        
-        currentStartPrice = candMin; // 이제 기준 시작가는 확정된 candMin으로 변경
-        
-        // 현재 인덱스는 당연히 목표(2배)를 달성한 상태이므로 완료로 마킹
+
+        currentStartPrice = candMin;
+
         if (markers[i]) markers[i] += " / " + currentWave + "차완료";
         else markers[i] = currentWave + "차완료";
-        
-        // 다시 다음 파동의 하락을 추적 시작
+
         state = 'SEEK_DIP';
         candMin = p;
         candMinIdx = i;
@@ -1606,9 +1596,11 @@ function calculateWaves(data) {
     }
   }
 
-  // 3. 차트 끝까지 갔는데 아직 목표(2배)에 도달하지 못한 진행 중인 파동인 경우
-  // 직전 완료 이후 지금까지 확인된 '가장 낮은 가격'을 현재 진행형 파동의 시작점으로 마킹
-  if (state === 'SEEK_DIP' && candMinIdx !== -1) {
+  // 차트 끝에 도달했을 때 진행 중인 마커 처리
+  if (state === 'SEEK_FIRST_TARGET') {
+     // 단 한 번도 1차 파동을 완성하지 못했으면, 역대 최저점을 파동시작으로 표시
+     markers[candMinIdx] = "파동시작";
+  } else if (state === 'SEEK_DIP' && candMinIdx !== -1) {
      if (candMin < currentStartPrice) {
        let txt = "파동시작";
        if (!markers[candMinIdx] || !markers[candMinIdx].includes(txt)) {
@@ -1637,7 +1629,6 @@ function updateWaveInfoUI(markers, data) {
   let hasWaves = false;
   let html = '';
   
-  // markers 배열을 순회하며 파동 이력을 추출
   for (let i = 0; i < markers.length; i++) {
     if (markers[i]) {
       hasWaves = true;
