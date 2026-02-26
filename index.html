@@ -257,52 +257,36 @@ input[type="number"] { width: 72px; text-align: center; }
 
 .btn-sm { padding: 6px 10px; font-size: 11px; }
 
-/* ── 기간 버튼 그룹 ──────────────────────────── */
+/* ── 기간 버튼 및 체크박스 분리 디자인 ──────────── */
 .period-group {
   display: flex; align-items: center; gap: 6px;
   flex-wrap: wrap;
 }
 
-.period-pill {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 14px;
-  background: var(--bg3);
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  color: var(--text2);
-  font-family: 'Noto Sans KR', sans-serif;
-  font-size: 12px; font-weight: 600;
-  cursor: pointer;
+.period-wrapper {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 4px 10px;
+}
+.period-wrapper input[type="checkbox"] {
+  appearance: none; width: 14px; height: 14px;
+  border: 1px solid var(--border2); border-radius: 3px; background: var(--bg); cursor: pointer; flex-shrink: 0;
   transition: all .2s;
 }
-.period-pill:hover {
-  border-color: var(--blue);
-  color: var(--blue);
-  background: var(--blue-dim);
-}
-.period-pill.active {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
-}
-
-.period-pill input[type="checkbox"] {
-  appearance: none;
-  width: 14px; height: 14px;
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  background: var(--bg);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all .2s;
-}
-.period-pill input[type="checkbox"]:checked {
-  background: #fff;
-  border-color: #fff;
+.period-wrapper input[type="checkbox"]:checked {
+  background: #fff; border-color: #fff;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 4l3 3 5-6' stroke='%23e8a020' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-size: 10px;
-  background-repeat: no-repeat;
-  background-position: center;
+  background-size: 10px; background-repeat: no-repeat; background-position: center;
+}
+.period-btn-txt {
+  background: transparent; border: none; color: var(--text2);
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Noto Sans KR', sans-serif;
+  padding: 0; transition: color .2s;
+}
+.period-btn-txt:hover { color: var(--blue); }
+
+.standalone-pill {
+  border-radius: 20px; padding: 5px 12px; height: 26px; font-size: 12px;
 }
 
 /* ── 탭 1: 차트 뷰 ───────────────────────────── */
@@ -455,7 +439,7 @@ input[type="number"] { width: 72px; text-align: center; }
 
 .table-scroll { overflow-x: auto; max-height: 580px; overflow-y: auto; }
 
-table { width: 100%; border-collapse: collapse; min-width: 800px; } /* 모바일에서 가로 스크롤 허용을 위한 min-width */
+table { width: 100%; border-collapse: collapse; min-width: 800px; }
 
 thead { position: sticky; top: 0; z-index: 10; }
 thead th {
@@ -664,7 +648,6 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   td, th { padding: 10px; font-size: 12px; }
   td.num { font-size: 11px; }
   
-  /* 테이블 관리 컬럼 버튼 모바일 조정 */
   td.center .btn-sm { width: 100%; padding: 8px 0; }
 }
 </style>
@@ -765,13 +748,35 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 
     <div style="width:100%; border-top:1px solid var(--border); padding-top:12px; display:flex; flex-direction:column; gap:8px;">
       <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">기간 선택</span>
+      
+      <!-- 체크박스와 텍스트 버튼 분리 -->
       <div class="period-group">
-        <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="20"><span class="period-btn" data-days="20">20일</span></label>
-        <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="40"><span class="period-btn" data-days="40">40일</span></label>
-        <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="60"><span class="period-btn" data-days="60">60일</span></label>
-        <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="120"><span class="period-btn" data-days="120">120일</span></label>
-        <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="240"><span class="period-btn" data-days="240">240일</span></label>
-        <label class="period-pill"><input type="checkbox" class="period-checkbox" data-days="all"><span class="period-btn" data-days="all">전체</span></label>
+        <button type="button" class="btn btn-sm btn-ghost standalone-pill period-btn" data-days="thisYear">올해</button>
+        
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="20" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="20">20일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="40" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="40">40일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="60" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="60">60일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="120" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="120">120일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="240" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="240">240일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="all" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="all">전체</button>
+        </div>
       </div>
     </div>
 
@@ -853,12 +858,13 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="table-period-bar">
     <span class="table-period-label">기간 선택</span>
     <div class="period-group">
-      <button class="period-pill global-period-btn" data-days="20">20일</button>
-      <button class="period-pill global-period-btn" data-days="40">40일</button>
-      <button class="period-pill global-period-btn" data-days="60">60일</button>
-      <button class="period-pill global-period-btn" data-days="120">120일</button>
-      <button class="period-pill global-period-btn" data-days="240">240일</button>
-      <button class="period-pill global-period-btn" data-days="all">전체</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="thisYear">올해</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="20">20일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="40">40일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="60">60일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="120">120일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="240">240일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="all">전체</button>
     </div>
   </div>
 
@@ -912,6 +918,33 @@ let stockIndex = new Map();
 Chart.defaults.color = '#9d9a93';
 Chart.defaults.borderColor = '#2e2c29';
 Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans KR', sans-serif";
+
+// 파동 표시 플러그인 (인스턴스에 종속)
+const waveDrawerPlugin = {
+  id: 'waveDrawer',
+  afterDraw: function(chart) {
+    const markers = chart.config.options.plugins.waveMarkers;
+    if(!markers) return;
+    const ctx = chart.ctx;
+    const meta = chart.getDatasetMeta(0);
+    ctx.save();
+    ctx.font = 'bold 11px "Noto Sans KR"';
+    ctx.textAlign = 'center';
+    for(let i=0; i<markers.length; i++) {
+      if(markers[i]) {
+        const x = meta.data[i].x;
+        const y = meta.data[i].y;
+        const isComplete = markers[i].includes('완료');
+        ctx.fillStyle = isComplete ? '#f05c5c' : '#2ecc8e'; // 적색(완료), 녹색(시작)
+        ctx.fillText(markers[i], x, y - 12);
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+};
 
 // ── 종목코드 목록 localStorage ─────────────────────
 function loadLocalStocks() {
@@ -1471,36 +1504,149 @@ function showMsg(msg, isError) {
 function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 
 // ══════════════════════════════════════════════════════
-// 탭 1: 차트 뷰
+// 파동 알고리즘 (비판적 요구에 의한 강제 확정 규칙)
+// ══════════════════════════════════════════════════════
+function calculateWaves(data) {
+  let markers = new Array(data.length).fill(null);
+  if (data.length === 0) return markers;
+
+  // 1. 전체 데이터 기준 절대 최저점 탐색
+  let absMin = Infinity;
+  let absMinIdx = -1;
+  for(let i=0; i<data.length; i++) {
+    if(data[i].price < absMin) { absMin = data[i].price; absMinIdx = i; }
+  }
+
+  let currentWave = 1;
+  let currentStartPrice = data[absMinIdx].price;
+  let targetPrice = currentStartPrice * 2;
+  markers[absMinIdx] = "파동시작";
+
+  let state = 'SEEK_TARGET';
+  let peakPrice = 0;
+  let troughPrice = Infinity;
+  let troughIdx = -1;
+
+  for(let i = absMinIdx + 1; i < data.length; i++) {
+    let p = data[i].price;
+
+    if (state === 'SEEK_TARGET') {
+      if (p >= targetPrice) {
+        markers[i] = currentWave + "차완료";
+        state = 'SEEK_DIP';
+        // 완료된 시점의 가격을 최고점으로 초기화하고 이후 하락(Dip)을 추적하기 시작합니다.
+        peakPrice = p;
+        troughPrice = p;
+        troughIdx = i;
+      }
+    } else if (state === 'SEEK_DIP') {
+      // 논리적 순서 보장: 가격이 최고점을 경신하면 하락 조건을 다시 계산합니다.
+      if (p > peakPrice) {
+        peakPrice = p;
+        troughPrice = p;
+        troughIdx = i;
+      } else if (p < troughPrice) {
+        // 최고점 대비 새로운 최저점 발생 시 기록
+        troughPrice = p;
+        troughIdx = i;
+      }
+      
+      // 버그 차단: 완료된 인덱스(i)와 겹치지 않는 위치(troughIdx !== i)에서
+      // 최고점 대비 15% 하락이 먼저 발생하고, 그 이후 시점에서 저점 대비 15% 반등해야 인정.
+      if (troughIdx !== -1 && troughPrice <= peakPrice * 0.85 && p >= troughPrice * 1.15) {
+        if (troughPrice < currentStartPrice) {
+          // 직전 파동시작 저점보다 낮아지면 다시 시작
+          currentWave = 1;
+          markers[troughIdx] = "파동시작";
+        } else {
+          currentWave++;
+          markers[troughIdx] = currentWave + "차시작";
+        }
+        currentStartPrice = troughPrice;
+        targetPrice = currentStartPrice * 2;
+        state = 'SEEK_TARGET';
+        peakPrice = 0; // 초기화
+      }
+    }
+  }
+  return markers;
+}
+
+// ══════════════════════════════════════════════════════
+// 탭 1: 차트 뷰 이벤트 처리
 // ══════════════════════════════════════════════════════
 
-document.querySelectorAll('.period-btn').forEach(btn => {
+document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     if (!allParsedData.length) return showMsg("CSV 파일을 먼저 업로드하세요.", true);
-    const input = document.getElementById('searchInput');
-    const code = input.dataset.selectedCode || input.value.trim();
-    if (!code) return showMsg("종목을 검색하여 선택하세요.", true);
-    const stockData = allParsedData.filter(d => d.code === code);
-    if (!stockData.length) return showMsg("데이터가 없습니다.", true);
+    
+    const isTable = this.classList.contains('global-period-btn');
+    let code = null;
+    let dates = [];
 
-    const dates = [...new Set(stockData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
+    if (isTable) {
+      document.querySelectorAll('.global-period-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      dates = [...new Set(allParsedData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
+    } else {
+      const input = document.getElementById('searchInput');
+      code = input.dataset.selectedCode || input.value.trim();
+      if (!code) return showMsg("종목을 검색하여 선택하세요.", true);
+      const stockData = allParsedData.filter(d => d.code === code);
+      if (!stockData.length) return showMsg("데이터가 없습니다.", true);
+      dates = [...new Set(stockData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
+    }
+
     const daysAttr = this.dataset.days;
+    let endVal = isTable ? document.getElementById('globalEndDate').value : document.getElementById('endDateInput').value;
+    
     if (daysAttr === 'all') {
-      document.getElementById('endDateInput').value = dates.at(-1);
-      document.getElementById('startDateInput').value = dates[0];
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates.at(-1);
+        document.getElementById('globalStartDate').value = dates[0];
+      } else {
+        document.getElementById('endDateInput').value = dates.at(-1);
+        document.getElementById('startDateInput').value = dates[0];
+      }
+    } else if (daysAttr === 'thisYear') {
+      // 직전 연도의 마지막 날짜 탐색
+      let lastYearDate = dates[0];
+      const currentMaxYear = new Date(dates.at(-1)).getFullYear();
+      for(let i = dates.length - 1; i >= 0; i--) {
+        if(new Date(dates[i]).getFullYear() < currentMaxYear) {
+          lastYearDate = dates[i];
+          break;
+        }
+      }
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates.at(-1);
+        document.getElementById('globalStartDate').value = lastYearDate;
+      } else {
+        document.getElementById('endDateInput').value = dates.at(-1);
+        document.getElementById('startDateInput').value = lastYearDate;
+      }
     } else {
       const days = +daysAttr;
-      const endVal = document.getElementById('endDateInput').value;
       let endIdx = dates.length - 1;
       if (endVal) {
         const t = new Date(endVal).getTime();
         for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
       }
       const startIdx = Math.max(0, endIdx - days);
-      document.getElementById('endDateInput').value   = dates[endIdx];
-      document.getElementById('startDateInput').value = dates[startIdx];
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates[endIdx];
+        document.getElementById('globalStartDate').value = dates[startIdx];
+      } else {
+        document.getElementById('endDateInput').value = dates[endIdx];
+        document.getElementById('startDateInput').value = dates[startIdx];
+      }
     }
-    searchAndRender();
+    
+    if (isTable) {
+      if (tableSelectedStocks.size > 0) renderGlobalTable();
+    } else {
+      searchAndRender();
+    }
   });
 });
 
@@ -1540,17 +1686,22 @@ function searchAndRender() {
   document.getElementById('exportBtn').style.display = '';
   const recentName = stockIndex.get(code)?.recentName || data.at(-1).name;
   document.getElementById('combinedChartTitle').textContent = `[${recentName}] 현재가 및 보유계좌수 추이`;
-  renderMainChart(data.map(d=>d.date), data.map(d=>d.accounts), data.map(d=>d.price));
+  
+  const isAllPeriod = (currentFilteredData.length === full.length);
+  renderMainChart(data.map(d=>d.date), data.map(d=>d.accounts), data.map(d=>d.price), isAllPeriod);
   updateCheckboxSummaries();
 }
 
-function renderMainChart(labels, accountsData, priceData) {
+function renderMainChart(labels, accountsData, priceData, isAllPeriod) {
   const ctx = document.getElementById('combinedChart').getContext('2d');
   if (combinedChartInstance) combinedChartInstance.destroy();
 
   const minP = Math.min(...priceData), maxP = Math.max(...priceData);
   const range = maxP - minP;
   const pad = range === 0 ? minP * 0.1 : range * 0.5;
+
+  // 파동 데이터 계산 (전체 기간일 때만 실행)
+  const waveMarkers = isAllPeriod ? calculateWaves(currentFilteredData) : new Array(currentFilteredData.length).fill(null);
 
   combinedChartInstance = new Chart(ctx, {
     type: 'line',
@@ -1571,6 +1722,22 @@ function renderMainChart(labels, accountsData, priceData) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      plugins: {
+        waveMarkers: waveMarkers, // 커스텀 플러그인을 위한 파동 데이터
+        tooltip: {
+          backgroundColor: '#232220',
+          borderColor: '#3d3b37', borderWidth: 1,
+          titleColor: '#9d9a93', bodyColor: '#f0ece4',
+          padding: 10,
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return ` ${ctx.dataset.label}: ${v.toLocaleString()}`;
+            }
+          }
+        },
+        legend: { display: false }
+      },
       onClick(event, elements, chart) {
         if (!elements.length) return;
         const date = chart.data.labels[elements[0].index];
@@ -1591,23 +1758,15 @@ function renderMainChart(labels, accountsData, priceData) {
         }
       },
       interaction: { mode: 'index', intersect: false },
-      plugins: {
-        tooltip: {
-          backgroundColor: '#232220',
-          borderColor: '#3d3b37', borderWidth: 1,
-          titleColor: '#9d9a93', bodyColor: '#f0ece4',
-          padding: 10,
-          callbacks: {
-            label: ctx => {
-              const v = ctx.parsed.y;
-              return ` ${ctx.dataset.label}: ${v.toLocaleString()}`;
-            }
-          }
-        },
-        legend: { display: false }
-      },
       scales: {
-        x: { grid: { color: '#2e2c29' }, ticks: { maxTicksLimit: 10, maxRotation: 0 } },
+        x: { 
+          grid: { color: '#2e2c29' }, 
+          ticks: { 
+            // 폰 해상도에서 라벨이 겹치지 않게 동적 개수 조절
+            maxTicksLimit: window.innerWidth < 768 ? 4 : 10, 
+            maxRotation: 0 
+          } 
+        },
         y: {
           type: 'linear', position: 'left',
           title: { display: true, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } },
@@ -1623,7 +1782,8 @@ function renderMainChart(labels, accountsData, priceData) {
           ticks: { callback: v => v.toLocaleString() }
         }
       }
-    }
+    },
+    plugins: [waveDrawerPlugin]
   });
 }
 
@@ -1759,33 +1919,6 @@ document.getElementById('batchStockFileInput').addEventListener('change', functi
   });
 });
 
-document.querySelectorAll('.global-period-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    if (!allParsedData.length) { showMsg("데이터를 먼저 로드하세요.", true); return; }
-    document.querySelectorAll('.global-period-btn').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-
-    const dates = [...new Set(allParsedData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
-    const attr = this.dataset.days;
-    if (attr === 'all') {
-      document.getElementById('globalEndDate').value   = dates.at(-1);
-      document.getElementById('globalStartDate').value = dates[0];
-    } else {
-      const days = +attr;
-      const endVal = document.getElementById('globalEndDate').value;
-      let endIdx = dates.length - 1;
-      if (endVal) {
-        const t = new Date(endVal).getTime();
-        for (let i=dates.length-1;i>=0;i--) { if(new Date(dates[i]).getTime()<=t){endIdx=i;break;} }
-      }
-      const startIdx = Math.max(0, endIdx - days);
-      document.getElementById('globalEndDate').value   = dates[endIdx];
-      document.getElementById('globalStartDate').value = dates[startIdx];
-    }
-    if (tableSelectedStocks.size > 0) renderGlobalTable();
-  });
-});
-
 document.getElementById('globalStartDate').addEventListener('change', () => { if (tableSelectedStocks.size > 0) renderGlobalTable(); });
 document.getElementById('globalEndDate').addEventListener('change',   () => { if (tableSelectedStocks.size > 0) renderGlobalTable(); });
 
@@ -1860,7 +1993,7 @@ function renderTableInlineChart(code) {
       plugins: { legend:{display:false}, tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 } },
       interaction: { mode:'index', intersect:false },
       scales: {
-        x: { grid:{color:'#2e2c29'}, ticks:{maxTicksLimit:8,maxRotation:0,font:{size:10}} },
+        x: { grid:{color:'#2e2c29'}, ticks:{maxTicksLimit: window.innerWidth < 768 ? 4 : 8, maxRotation:0,font:{size:10}} },
         y: { position:'left', grid:{color:'#2e2c29'}, suggestedMin:Math.max(0,minP-pad), suggestedMax:maxP+pad, ticks:{font:{size:10},callback:v=>v.toLocaleString()} },
         y1:{ position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:10},callback:v=>v.toLocaleString()} }
       }
