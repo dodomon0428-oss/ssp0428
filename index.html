@@ -1761,14 +1761,23 @@ function renderMainChart(labels, accountsData, priceData, isAllPeriod) {
       scales: {
         x: { 
           grid: { color: '#2e2c29' }, 
-          ticks: { 
-            // 폰 해상도에서 라벨이 겹치지 않게 동적 개수 조절 및 회전 허용
-            maxTicksLimit: window.innerWidth < 768 ? 5 : 10, 
+          ticks: {
+            maxTicksLimit: window.innerWidth < 480 ? 4 : window.innerWidth < 768 ? 5 : 10,
+            minRotation: window.innerWidth < 768 ? 30 : 0,
+            maxRotation: window.innerWidth < 768 ? 45 : 0,
             autoSkip: true,
-            autoSkipPadding: 15, // 라벨 간 최소 여백 강제
-            maxRotation: window.innerWidth < 768 ? 45 : 0, 
-            minRotation: window.innerWidth < 768 ? 45 : 0
-          } 
+            autoSkipPadding: window.innerWidth < 768 ? 4 : 8,
+            font: { size: window.innerWidth < 768 ? 9 : 11 },
+            callback: function(val) {
+              const label = this.getLabelForValue(val);
+              if (!label) return '';
+              if (window.innerWidth < 768) {
+                const p = label.split('-');
+                if (p.length === 3) return p[1] + '/' + p[2]; // MM/DD
+              }
+              return label;
+            }
+          }
         },
         y: {
           type: 'linear', position: 'left',
@@ -1996,17 +2005,21 @@ function renderTableInlineChart(code) {
       plugins: { legend:{display:false}, tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 } },
       interaction: { mode:'index', intersect:false },
       scales: {
-        x: { 
-          grid: { color: '#2e2c29' }, 
-          ticks: { 
-            maxTicksLimit: window.innerWidth < 768 ? 4 : 8,
-            autoSkip: true,
-            autoSkipPadding: 15,
-            maxRotation: window.innerWidth < 768 ? 45 : 0,
-            minRotation: window.innerWidth < 768 ? 45 : 0,
-            font: { size: 10 } 
-          } 
-        },
+        x: { grid:{color:'#2e2c29'}, ticks:{
+          maxTicksLimit: window.innerWidth < 480 ? 4 : window.innerWidth < 768 ? 5 : 8,
+          minRotation: window.innerWidth < 768 ? 30 : 0,
+          maxRotation: window.innerWidth < 768 ? 45 : 0,
+          autoSkip: true, autoSkipPadding: 4, font:{size:10},
+          callback: function(val) {
+            const label = this.getLabelForValue(val);
+            if (!label) return '';
+            if (window.innerWidth < 768) {
+              const p = label.split('-');
+              return p.length === 3 ? p[1]+'/'+p[2] : label;
+            }
+            return label;
+          }
+        }},
         y: { position:'left', grid:{color:'#2e2c29'}, suggestedMin:Math.max(0,minP-pad), suggestedMax:maxP+pad, ticks:{font:{size:10},callback:v=>v.toLocaleString()} },
         y1:{ position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:10},callback:v=>v.toLocaleString()} }
       }
