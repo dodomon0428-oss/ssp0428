@@ -1504,13 +1504,13 @@ function showMsg(msg, isError) {
 function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 
 // ══════════════════════════════════════════════════════
-// 파동 알고리즘 (비판적 요구에 의한 강제 확정 규칙)
+// 파동 알고리즘 (소급 추적 및 목표 달성 검증 로직으로 전면 개편)
 // ══════════════════════════════════════════════════════
 function calculateWaves(data) {
   let markers = new Array(data.length).fill(null);
   if (data.length === 0) return markers;
 
-  // 1. 전체 데이터 기준 절대 최저점 탐색
+  // 1. 전체 데이터 기준 절대 최저점 탐색 (가장 최초의 파동 시작점)
   let absMin = Infinity;
   let absMinIdx = -1;
   for(let i=0; i<data.length; i++) {
@@ -1519,56 +1519,84 @@ function calculateWaves(data) {
 
   let currentWave = 1;
   let currentStartPrice = data[absMinIdx].price;
-  let targetPrice = currentStartPrice * 2;
   markers[absMinIdx] = "파동시작";
 
   let state = 'SEEK_TARGET';
-  let peakPrice = 0;
-  let troughPrice = Infinity;
-  let troughIdx = -1;
+  
+  // 파동 완료 후, 다음 파동의 시작이 될 '진짜 저점'을 소급(Retroactive) 추적하기 위한 변수
+  let candMin = Infinity; 
+  let candMinIdx = -1;
 
   for(let i = absMinIdx + 1; i < data.length; i++) {
     let p = data[i].price;
 
     if (state === 'SEEK_TARGET') {
-      if (p >= targetPrice) {
-        markers[i] = currentWave + "차완료";
+      if (p >= currentStartPrice * 2) {
+        // 목표가(2배) 달성 시 완료 마킹
+        if (markers[i]) markers[i] += " / " + currentWave + "차완료";
+        else markers[i] = currentWave + "차완료";
+        
+        // 완료된 직후부터 다음 파동의 바닥을 찾기 시작 (최초 후보는 현재가)
         state = 'SEEK_DIP';
-        // 완료된 시점의 가격을 최고점으로 초기화하고 이후 하락(Dip)을 추적하기 시작합니다.
-        peakPrice = p;
-        troughPrice = p;
-        troughIdx = i;
+        candMin = p;
+        candMinIdx = i;
       }
     } else if (state === 'SEEK_DIP') {
-      // 논리적 순서 보장: 가격이 최고점을 경신하면 하락 조건을 다시 계산합니다.
-      if (p > peakPrice) {
-        peakPrice = p;
-        troughPrice = p;
-        troughIdx = i;
-      } else if (p < troughPrice) {
-        // 최고점 대비 새로운 최저점 발생 시 기록
-        troughPrice = p;
-        troughIdx = i;
+      // 1. 현재까지 확인된 최저점 후보보다 더 떨어지면 갱신
+      if (p <= candMin) {
+        candMin = p;
+        candMinIdx = i;
       }
       
-      // 버그 차단: 완료된 인덱스(i)와 겹치지 않는 위치(troughIdx !== i)에서
-      // 최고점 대비 15% 하락이 먼저 발생하고, 그 이후 시점에서 저점 대비 15% 반등해야 인정.
-      if (troughIdx !== -1 && troughPrice <= peakPrice * 0.85 && p >= troughPrice * 1.15) {
-        if (troughPrice < currentStartPrice) {
-          // 직전 파동시작 저점보다 낮아지면 다시 시작
+      // 2. 만약 어떤 시점에서 가격이 그 최저점 후보의 2배에 도달했다면?
+      // 즉, 그 최저점 후보가 '새로운 파동의 진짜 시작점'이었음이 수학적으로 확인된 순간!
+      if (p >= candMin * 2) {
+        
+        // 사용자가 요청한 예외 규칙: 완료 후 파동 저점이 '직전 파동의 시작가'보다 낮으면 1차로 리셋
+        if (candMin < currentStartPrice) {
           currentWave = 1;
-          markers[troughIdx] = "파동시작";
+          let txt = "파동시작";
+          if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
+          else markers[candMinIdx] = txt;
         } else {
           currentWave++;
-          markers[troughIdx] = currentWave + "차시작";
+          let txt = currentWave + "차시작";
+          if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
+          else markers[candMinIdx] = txt;
         }
-        currentStartPrice = troughPrice;
-        targetPrice = currentStartPrice * 2;
-        state = 'SEEK_TARGET';
-        peakPrice = 0; // 초기화
+        
+        currentStartPrice = candMin; // 이제 기준 시작가는 확정된 candMin으로 변경
+        
+        // 현재 인덱스는 당연히 목표(2배)를 달성한 상태이므로 완료로 마킹
+        if (markers[i]) markers[i] += " / " + currentWave + "차완료";
+        else markers[i] = currentWave + "차완료";
+        
+        // 다시 다음 파동의 하락을 추적 시작
+        state = 'SEEK_DIP';
+        candMin = p;
+        candMinIdx = i;
       }
     }
   }
+
+  // 3. 차트 끝까지 갔는데 아직 목표(2배)에 도달하지 못한 진행 중인 파동인 경우
+  // 직전 완료 이후 지금까지 확인된 '가장 낮은 가격'을 현재 진행형 파동의 시작점으로 마킹
+  if (state === 'SEEK_DIP' && candMinIdx !== -1) {
+     if (candMin < currentStartPrice) {
+       let txt = "파동시작";
+       if (!markers[candMinIdx] || !markers[candMinIdx].includes(txt)) {
+         if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
+         else markers[candMinIdx] = txt;
+       }
+     } else {
+       let txt = (currentWave + 1) + "차시작";
+       if (!markers[candMinIdx] || !markers[candMinIdx].includes(txt)) {
+         if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
+         else markers[candMinIdx] = txt;
+       }
+     }
+  }
+
   return markers;
 }
 
@@ -1609,7 +1637,6 @@ document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
         document.getElementById('startDateInput').value = dates[0];
       }
     } else if (daysAttr === 'thisYear') {
-      // 직전 연도의 마지막 날짜 탐색
       let lastYearDate = dates[0];
       const currentMaxYear = new Date(dates.at(-1)).getFullYear();
       for(let i = dates.length - 1; i >= 0; i--) {
@@ -1700,7 +1727,7 @@ function renderMainChart(labels, accountsData, priceData, isAllPeriod) {
   const range = maxP - minP;
   const pad = range === 0 ? minP * 0.1 : range * 0.5;
 
-  // 파동 데이터 계산 (전체 기간일 때만 실행)
+  // 전체 기간일 때만 실행
   const waveMarkers = isAllPeriod ? calculateWaves(currentFilteredData) : new Array(currentFilteredData.length).fill(null);
 
   combinedChartInstance = new Chart(ctx, {
@@ -1723,7 +1750,7 @@ function renderMainChart(labels, accountsData, priceData, isAllPeriod) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        waveMarkers: waveMarkers, // 커스텀 플러그인을 위한 파동 데이터
+        waveMarkers: waveMarkers,
         tooltip: {
           backgroundColor: '#232220',
           borderColor: '#3d3b37', borderWidth: 1,
@@ -1762,19 +1789,18 @@ function renderMainChart(labels, accountsData, priceData, isAllPeriod) {
         x: { 
           grid: { color: '#2e2c29' }, 
           ticks: {
-            maxTicksLimit: window.innerWidth < 480 ? 4 : window.innerWidth < 768 ? 5 : 10,
-            minRotation: window.innerWidth < 768 ? 30 : 0,
-            maxRotation: window.innerWidth < 768 ? 45 : 0,
+            maxTicksLimit: 6,
+            minRotation: 0, // 강제 회전 해제 (가로 출력)
+            maxRotation: 0, // 강제 회전 해제 (가로 출력)
             autoSkip: true,
-            autoSkipPadding: window.innerWidth < 768 ? 4 : 8,
-            font: { size: window.innerWidth < 768 ? 9 : 11 },
+            autoSkipPadding: 30,
+            font: { size: 10 },
             callback: function(val) {
               const label = this.getLabelForValue(val);
               if (!label) return '';
-              if (window.innerWidth < 768) {
-                const p = label.split('-');
-                if (p.length === 3) return p[1] + '/' + p[2]; // MM/DD
-              }
+              const p = label.split('-');
+              // 공간 절약을 위해 연도를 뒷자리 2개로 표기 (예: 25/04/11)
+              if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
               return label;
             }
           }
@@ -1991,7 +2017,6 @@ function renderTableInlineChart(code) {
   const range = maxP - minP;
   const pad = range === 0 ? minP * .1 : range * .5;
 
-  // 전체 기간 여부 판단 → 맞으면 파동 계산
   const fullData = allParsedData.filter(d => d.code === code);
   const isFullRange = data.length === fullData.length;
   const waveMarkers = isFullRange ? calculateWaves(data) : [];
@@ -2015,17 +2040,17 @@ function renderTableInlineChart(code) {
       interaction: { mode:'index', intersect:false },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
-          maxTicksLimit: window.innerWidth < 480 ? 4 : window.innerWidth < 768 ? 5 : 8,
-          minRotation: window.innerWidth < 768 ? 30 : 0,
-          maxRotation: window.innerWidth < 768 ? 45 : 0,
-          autoSkip: true, autoSkipPadding: 4, font:{size:10},
+          maxTicksLimit: 5,
+          minRotation: 0, // 강제 회전 해제 (가로 출력)
+          maxRotation: 0, // 강제 회전 해제 (가로 출력)
+          autoSkip: true, 
+          autoSkipPadding: 30,
+          font:{size:10},
           callback: function(val) {
             const label = this.getLabelForValue(val);
             if (!label) return '';
-            if (window.innerWidth < 768) {
-              const p = label.split('-');
-              return p.length === 3 ? p[1]+'/'+p[2] : label;
-            }
+            const p = label.split('-');
+            if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
             return label;
           }
         }},
