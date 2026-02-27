@@ -1598,6 +1598,28 @@ function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 // ══════════════════════════════════════════════════════
 
 // ── 공통 줌/패닝 옵션 ──────────────────────────
+// 터치 제스처 중 툴팁 억제
+// 두 손가락 제스처 중 툴팁 차단: 캔버스에 투명 오버레이 씌우기
+function _onGestureStart(chart) {
+  if (!chart?.canvas) return;
+  const canvas = chart.canvas;
+  let overlay = canvas._tooltipBlocker;
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;z-index:99;touch-action:pinch-zoom pan-x;';
+    canvas.parentElement.style.position = 'relative';
+    canvas.parentElement.appendChild(overlay);
+    canvas._tooltipBlocker = overlay;
+  }
+  overlay.style.display = 'block';
+}
+function _onGestureEnd(chart) {
+  if (!chart?.canvas) return;
+  const overlay = chart.canvas._tooltipBlocker;
+  // 손가락 뗀 후 잠깐 유지 (관성 스크롤 대응)
+  setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 250);
+}
+
 function _showResetBtn() {
   const btn = document.getElementById('resetZoomBtn');
   if (btn) btn.style.display = '';
@@ -1607,12 +1629,19 @@ function _hideResetBtn() {
   if (btn) btn.style.display = 'none';
 }
 const ZOOM_OPTIONS = {
-  pan:  { enabled: true, mode: 'x', onPan: _showResetBtn },
+  pan: {
+    enabled: true, mode: 'x',
+    onPanStart({ chart }) { _onGestureStart(chart); },
+    onPan({ chart }) { _showResetBtn(); },
+    onPanComplete({ chart }) { _showResetBtn(); _onGestureEnd(chart); }
+  },
   zoom: {
     wheel:  { enabled: true, speed: 0.1 },
     pinch:  { enabled: true },
     mode:   'x',
-    onZoom: _showResetBtn
+    onZoomStart({ chart }) { _onGestureStart(chart); },
+    onZoom({ chart }) { _showResetBtn(); },
+    onZoomComplete({ chart }) { _showResetBtn(); _onGestureEnd(chart); }
   },
   limits: { x: { minRange: 5 } }
 };
@@ -2214,9 +2243,16 @@ function renderTableInlineChart(code) {
         tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 },
         waveMarkers: filteredWaveMarkers,
         zoom: {
-          pan:  { enabled:true, mode:'x', onPan(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); } },
+          pan: { enabled:true, mode:'x',
+            onPanStart({chart}){ _onGestureStart(chart); },
+            onPan(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); },
+            onPanComplete({chart}){ _onGestureEnd(chart); document.getElementById('reset-overlay-'+code)?.classList.add('visible'); }
+          },
           zoom: { wheel:{enabled:true,speed:0.1}, pinch:{enabled:true}, mode:'x',
-                  onZoom(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); } },
+            onZoomStart({chart}){ _onGestureStart(chart); },
+            onZoom(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); },
+            onZoomComplete({chart}){ _onGestureEnd(chart); document.getElementById('reset-overlay-'+code)?.classList.add('visible'); }
+          },
           limits: { x:{minRange:5} }
         }
       },
@@ -2504,9 +2540,16 @@ function _renderMcChart(code) {
       responsive:true, maintainAspectRatio:false, animation:{duration:200},
       plugins: { legend:{display:false}, tooltip:{backgroundColor:'#232220',borderColor:'#3d3b37',borderWidth:1}, waveMarkers,
         zoom: {
-          pan:  { enabled:true, mode:'x', onPan(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); } },
+          pan: { enabled:true, mode:'x',
+            onPanStart({chart}){ _onGestureStart(chart); },
+            onPan(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); },
+            onPanComplete({chart}){ _onGestureEnd(chart); document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); }
+          },
           zoom: { wheel:{enabled:true,speed:0.1}, pinch:{enabled:true}, mode:'x',
-                  onZoom(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); } },
+            onZoomStart({chart}){ _onGestureStart(chart); },
+            onZoom(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); },
+            onZoomComplete({chart}){ _onGestureEnd(chart); document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); }
+          },
           limits: { x:{minRange:5} }
         }
       },
