@@ -664,10 +664,71 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   
   .table-period-bar { flex-direction: column; align-items: flex-start; padding: 12px; gap: 12px; }
   
-  td, th { padding: 10px; font-size: 12px; }
-  td.num { font-size: 11px; }
+  /* ── 모바일 종목 비교 테이블: 반응형 카드 레이아웃 전환 ── */
+  table { min-width: 100%; border: none; }
+  thead { display: none; /* 모바일에서는 열 제목 숨김 */ }
+  .table-scroll { overflow-y: visible; max-height: none; overflow-x: hidden; }
+  tbody { display: flex; flex-direction: column; gap: 16px; }
+
+  tr.data-row {
+    display: flex; flex-direction: column;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+  tr.data-row.expanded {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+  }
+
+  tr.data-row > td {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    text-align: right;
+  }
+  tr.data-row > td:last-child { border-bottom: none; }
+
+  tr.data-row > td::before {
+    content: attr(data-label);
+    font-size: 11px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase;
+  }
+
+  td.hide-mobile { display: none !important; }
+
+  td.stock-name-cell {
+    background: var(--bg2);
+    border-bottom: 2px solid var(--border);
+    justify-content: flex-start;
+  }
+  td.stock-name-cell::before { display: none; }
+
+  td.manage-cell { padding: 12px 16px; }
+  td.manage-cell::before { display: none; }
+  td.manage-cell .btn-sm { width: 100%; padding: 10px 0; font-size: 13px; }
+
+  tr.chart-row {
+    display: block;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-bottom-left-radius: var(--radius-lg);
+    border-bottom-right-radius: var(--radius-lg);
+    margin-top: -16px; /* tbody gap과 상쇄시켜 data-row와 결합 */
+    padding: 12px;
+  }
+
+  td.chart-td { display: block; padding: 0; border: none; text-align: left; }
+  td.chart-td::before { display: none; }
   
-  td.center .btn-sm { width: 100%; padding: 8px 0; }
+  tr.empty-row { display: block; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  tr.empty-row td { display: block; text-align: center; }
+  tr.empty-row td::before { display: none; }
 }
 </style>
 </head>
@@ -2050,15 +2111,18 @@ document.getElementById('globalTableBody').addEventListener('click', function(e)
 });
 
 function toggleTableChart(code) {
+  const dataRow = document.querySelector(`.data-row[data-row-code="${code}"]`);
   if (expandedTableCharts.has(code)) {
     expandedTableCharts.delete(code);
     const row = document.getElementById(`chart-row-${code}`);
     if (row) row.style.display = 'none';
+    if (dataRow) dataRow.classList.remove('expanded');
     if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
   } else {
     expandedTableCharts.add(code);
     const row = document.getElementById(`chart-row-${code}`);
     if (row) { row.style.display = ''; renderTableInlineChart(code); }
+    if (dataRow) dataRow.classList.add('expanded');
   }
 }
 
@@ -2226,33 +2290,37 @@ function renderGlobalTable() {
 
   const frag = document.createDocumentFragment();
   rows.forEach((r, i) => {
+    const isExp = expandedTableCharts.has(r.code);
     const tr = document.createElement('tr');
+    tr.className = 'data-row' + (isExp ? ' expanded' : '');
+    tr.dataset.rowCode = r.code;
     tr.innerHTML = `
-      <td class="center" style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${i+1}</td>
-      <td class="stock-name-cell" data-code="${r.code}" style="cursor:pointer">
-        <span class="stock-name-toggle">▶</span>
-        <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-right:6px">${r.code}</span>
-        <span style="color:var(--blue);font-weight:500">${r.name}</span>
+      <td class="center hide-mobile" data-label="#" style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${i+1}</td>
+      <td class="stock-name-cell" data-label="종목명" data-code="${r.code}" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="stock-name-toggle">▶</span>
+          <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;">${r.code}</span>
+          <span style="color:var(--blue);font-weight:600;font-size:14px">${r.name}</span>
+        </div>
       </td>
-      <td class="num" style="color:var(--text2)">${r.minAcc.toLocaleString()}</td>
-      <td class="num" style="font-weight:600">${r.maxAcc.toLocaleString()}</td>
-      <td class="num" style="color:var(--text2)">${r.startAccStr}</td>
-      <td class="num" style="color:var(--text2)">${r.endAccStr}</td>
-      <td class="num ${r.accClass}">${r.accStr}</td>
-      <td class="num" style="font-weight:600">${r.curStr}</td>
-      <td class="num ${r.dailyClass}">${r.dailyStr}</td>
-      <td class="center">
+      <td class="num" data-label="최소 계좌수" style="color:var(--text2)">${r.minAcc.toLocaleString()}</td>
+      <td class="num" data-label="최대 계좌수" style="font-weight:600">${r.maxAcc.toLocaleString()}</td>
+      <td class="num" data-label="${actualStart} 계좌수" style="color:var(--text2)">${r.startAccStr}</td>
+      <td class="num" data-label="${actualEnd} 계좌수" style="color:var(--text2)">${r.endAccStr}</td>
+      <td class="num ${r.accClass}" data-label="기간 매집(%)">${r.accStr}</td>
+      <td class="num" data-label="현 매집(%)" style="font-weight:600">${r.curStr}</td>
+      <td class="num ${r.dailyClass}" data-label="일 매집률">${r.dailyStr}</td>
+      <td class="center manage-cell" data-label="관리">
         <button class="btn btn-sm remove-stock-btn" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(248,81,73,.3)" data-code="${r.code}">삭제</button>
       </td>`;
     frag.appendChild(tr);
 
-    const isExp = expandedTableCharts.has(r.code);
     const chartTr = document.createElement('tr');
     chartTr.id = `chart-row-${r.code}`;
     chartTr.className = 'chart-row';
     chartTr.style.display = isExp ? '' : 'none';
     chartTr.innerHTML = `
-      <td colspan="10">
+      <td colspan="10" class="chart-td">
         <div class="chart-row-inner">
           <canvas id="table-chart-${r.code}"></canvas>
         </div>
