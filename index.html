@@ -6,10 +6,8 @@
 <title>주식 데이터 시각화 대시보드</title>
 <script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=54611"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- 확대/축소 및 모바일 제스처 지원을 위한 필수 공식 플러그인 추가 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://apis.google.com/js/api.js" async></script>
@@ -806,7 +804,6 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
     </div>
     <button id="searchBtn" class="btn btn-primary">검색</button>
     <button id="exportBtn" class="btn btn-ghost" style="display:none">⬇ CSV 다운로드</button>
-    <button id="resetZoomMainBtn" class="btn btn-ghost" style="display:none">↺ 차트 원본 비율</button>
 
     <div style="width:100%; border-top:1px solid var(--border); padding-top:12px; display:flex; flex-direction:column; gap:8px;">
       <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">기간 선택</span>
@@ -843,7 +840,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
     </div>
 
     <div class="chart-hint">
-      💡 마우스 휠 또는 두 손가락으로 차트를 확대/축소 및 이동할 수 있습니다.
+      💡 차트의 점을 연속 클릭하면 시작일/종료일을 빠르게 지정할 수 있습니다.
     </div>
   </div>
 
@@ -851,9 +848,10 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="chart-wrap-outer">
     <div class="chart-title-bar">
       <span class="chart-title-text" id="combinedChartTitle">종목 추이 종합</span>
-      <div style="display:flex;gap:14px;font-size:11px;color:var(--text2)">
+      <div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--text2)">
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#e8a020;display:inline-block;border-radius:2px"></span>현재가</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#38bdf8;display:inline-block;border-radius:2px"></span>보유계좌수</span>
+        <button id="resetZoomBtn" onclick="if(combinedChartInstance)combinedChartInstance.resetZoom()" title="확대 초기화" style="display:none;padding:2px 8px;font-size:10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);border-radius:4px;cursor:pointer">↺ 초기화</button>
       </div>
     </div>
     <div class="chart-inner">
@@ -1003,15 +1001,9 @@ const waveDrawerPlugin = {
     ctx.save();
     ctx.font = 'bold 11px "Noto Sans KR"';
     ctx.textAlign = 'center';
-    
-    // Zoom/Pan 적용 시 보이는 영역 내의 데이터만 렌더링되도록 확인해야 함
-    const xAxis = chart.scales.x;
     for(let i=0; i<markers.length; i++) {
       if(markers[i]) {
-        // 차트 스케일 범위를 벗어난 마커는 생략
         const x = meta.data[i].x;
-        if(x < xAxis.left || x > xAxis.right) continue;
-        
         const y = meta.data[i].y;
         const isComplete = markers[i].includes('완료');
         ctx.fillStyle = isComplete ? '#f05c5c' : '#2ecc8e'; // 적색(완료), 녹색(시작)
@@ -1585,6 +1577,26 @@ function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 // ══════════════════════════════════════════════════════
 // 파동 탐색 알고리즘 (순방향/소급 탐색으로 전면 수정)
 // ══════════════════════════════════════════════════════
+
+// ── 공통 줌/패닝 옵션 ──────────────────────────
+function _showResetBtn() {
+  const btn = document.getElementById('resetZoomBtn');
+  if (btn) btn.style.display = '';
+}
+function _hideResetBtn() {
+  const btn = document.getElementById('resetZoomBtn');
+  if (btn) btn.style.display = 'none';
+}
+const ZOOM_OPTIONS = {
+  pan:  { enabled: true, mode: 'x', onPan: _showResetBtn },
+  zoom: {
+    wheel:  { enabled: true, speed: 0.1 },
+    pinch:  { enabled: true },
+    mode:   'x',
+    onZoom: _showResetBtn
+  },
+  limits: { x: { minRange: 5 } }
+};
 function calculateWaves(data) {
   let markers = new Array(data.length).fill(null);
   if (data.length === 0) return markers;
@@ -1793,11 +1805,6 @@ document.getElementById('endDateInput').addEventListener('change', autoSearch);
 document.getElementById('searchBtn').addEventListener('click', searchAndRender);
 document.getElementById('exportBtn').addEventListener('click', exportToCSV);
 
-// 차트 원본 줌 해제
-document.getElementById('resetZoomMainBtn').addEventListener('click', () => {
-  if(combinedChartInstance) combinedChartInstance.resetZoom();
-});
-
 function autoSearch() {
   const input = document.getElementById('searchInput');
   const code = input.dataset.selectedCode || input.value.trim();
@@ -1826,11 +1833,10 @@ function searchAndRender() {
   let data = [...full];
   if (start) data = data.filter(d => new Date(d.date) >= new Date(start));
   if (end)   data = data.filter(d => new Date(d.date) <= new Date(end));
-  if (!data.length) { document.getElementById('exportBtn').style.display='none'; document.getElementById('resetZoomMainBtn').style.display='none'; return showMsg("선택 기간 내 데이터가 없습니다.", true); }
+  if (!data.length) { document.getElementById('exportBtn').style.display='none'; return showMsg("선택 기간 내 데이터가 없습니다.", true); }
 
   currentFilteredData = data;
   document.getElementById('exportBtn').style.display = '';
-  document.getElementById('resetZoomMainBtn').style.display = '';
   const recentName = stockIndex.get(code)?.recentName || data.at(-1).name;
   document.getElementById('combinedChartTitle').textContent = `[${recentName}] 현재가 및 보유계좌수 추이`;
   
@@ -1889,21 +1895,7 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
           }
         },
         legend: { display: false },
-        zoom: {
-          pan: {
-            enabled: true,
-            mode: 'x', // X축 기준 좌우 이동 지원
-          },
-          zoom: {
-            wheel: {
-              enabled: true, // PC 마우스 휠
-            },
-            pinch: {
-              enabled: true // 모바일 터치 두 손가락 (hammer.js 필요)
-            },
-            mode: 'x', // X축으로만 확대 축소
-          }
-        }
+        zoom: ZOOM_OPTIONS
       },
       onClick(event, elements, chart) {
         if (!elements.length) return;
@@ -1930,8 +1922,8 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
           grid: { color: '#2e2c29' }, 
           ticks: {
             maxTicksLimit: 6,
-            minRotation: 0, 
-            maxRotation: 0, 
+            minRotation: 0, // 강제 회전 해제 (가로 출력)
+            maxRotation: 0, // 강제 회전 해제 (가로 출력)
             autoSkip: true,
             autoSkipPadding: 30,
             font: { size: 10 },
@@ -1939,6 +1931,7 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
               const label = this.getLabelForValue(val);
               if (!label) return '';
               const p = label.split('-');
+              // 공간 절약을 위해 연도를 뒷자리 2개로 표기 (예: 25/04/11)
               if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
               return label;
             }
@@ -2185,17 +2178,14 @@ function renderTableInlineChart(code) {
         legend:{display:false},
         tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 },
         waveMarkers: filteredWaveMarkers,
-        zoom: { // 테이블 내 인라인 차트 줌 옵션 적용
-          pan: { enabled: true, mode: 'x' },
-          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
-        }
+        zoom: ZOOM_OPTIONS
       },
       interaction: { mode:'index', intersect:false },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
           maxTicksLimit: 5,
-          minRotation: 0, 
-          maxRotation: 0, 
+          minRotation: 0, // 강제 회전 해제 (가로 출력)
+          maxRotation: 0, // 강제 회전 해제 (가로 출력)
           autoSkip: true, 
           autoSkipPadding: 30,
           font:{size:10},
@@ -2462,15 +2452,7 @@ function _renderMcChart(code) {
     },
     options: {
       responsive:true, maintainAspectRatio:false, animation:{duration:200},
-      plugins: { 
-        legend:{display:false}, 
-        tooltip:{backgroundColor:'#232220',borderColor:'#3d3b37',borderWidth:1}, 
-        waveMarkers,
-        zoom: { // 모바일 카드용 줌 적용 (보통 좁은 영역이라 조작이 불편할 수 있지만 요청하신 기능 포함)
-          pan: { enabled: true, mode: 'x' },
-          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
-        }
-      },
+      plugins: { legend:{display:false}, tooltip:{backgroundColor:'#232220',borderColor:'#3d3b37',borderWidth:1}, waveMarkers, zoom: ZOOM_OPTIONS },
       interaction: { mode:'index', intersect:false },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
