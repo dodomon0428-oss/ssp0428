@@ -2407,8 +2407,14 @@ function _renderMcChart(code) {
   const minP = Math.min(...prices), maxP = Math.max(...prices);
   const pad  = (maxP - minP) === 0 ? minP * .1 : (maxP - minP) * .5;
 
+  // PC 인라인 차트와 동일하게: 전체 데이터로 파동 계산 후 현재 뷰에 맞게 필터링
   const fullData = allParsedData.filter(d => d.code === code);
-  const waveMarkers = data.length === fullData.length ? calculateWaves(data) : [];
+  fullData.sort((a,b) => new Date(a.date)-new Date(b.date));
+  const fullWaveMarkers = calculateWaves(fullData);
+  const waveMarkers = data.map(d => {
+    const idx = fullData.findIndex(fd => fd.date === d.date);
+    return idx !== -1 ? fullWaveMarkers[idx] : null;
+  });
 
   _mcCharts[code] = new Chart(canvas.getContext('2d'), {
     type: 'line',
