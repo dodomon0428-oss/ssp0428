@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주식 데이터 시각화 대시보드</title>
+<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=54611"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
@@ -664,72 +665,48 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   
   .table-period-bar { flex-direction: column; align-items: flex-start; padding: 12px; gap: 12px; }
   
-  /* ── 모바일 종목 비교 테이블: 반응형 카드 레이아웃 전환 ── */
-  table { min-width: 100%; border: none; }
-  thead { display: none; /* 모바일에서는 열 제목 숨김 */ }
-  .table-scroll { overflow-y: visible; max-height: none; overflow-x: hidden; }
-  tbody { display: flex; flex-direction: column; gap: 16px; }
-
-  tr.data-row {
-    display: flex; flex-direction: column;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    margin-bottom: 0;
-  }
-  tr.data-row.expanded {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    border-bottom: none;
-  }
-
-  tr.data-row > td {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-    text-align: right;
-  }
-  tr.data-row > td:last-child { border-bottom: none; }
-
-  tr.data-row > td::before {
-    content: attr(data-label);
-    font-size: 11px; font-weight: 600; color: var(--text2);
-    text-transform: uppercase;
-  }
-
-  td.hide-mobile { display: none !important; }
-
-  td.stock-name-cell {
-    background: var(--bg2);
-    border-bottom: 2px solid var(--border);
-    justify-content: flex-start;
-  }
-  td.stock-name-cell::before { display: none; }
-
-  td.manage-cell { padding: 12px 16px; }
-  td.manage-cell::before { display: none; }
-  td.manage-cell .btn-sm { width: 100%; padding: 10px 0; font-size: 13px; }
-
-  tr.chart-row {
-    display: block;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-bottom-left-radius: var(--radius-lg);
-    border-bottom-right-radius: var(--radius-lg);
-    margin-top: -16px; /* tbody gap과 상쇄시켜 data-row와 결합 */
-    padding: 12px;
-  }
-
-  td.chart-td { display: block; padding: 0; border: none; text-align: left; }
-  td.chart-td::before { display: none; }
+  td, th { padding: 10px; font-size: 12px; }
+  td.num { font-size: 11px; }
   
-  tr.empty-row { display: block; border: 1px solid var(--border); border-radius: var(--radius-lg); }
-  tr.empty-row td { display: block; text-align: center; }
-  tr.empty-row td::before { display: none; }
+  td.center .btn-sm { width: 100%; padding: 8px 0; }
+
+  /* 모바일: PC 테이블 숨기고 카드 표시 */
+  .data-table-wrap { display: none !important; }
+  #mobileCardList  { display: block !important; }
 }
+
+/* ── 모바일 카드 (기본: 숨김) ─────────────────── */
+#mobileCardList { display: none; }
+
+.mc { background:var(--bg2); border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
+.mc-head { display:flex; align-items:center; gap:8px; padding:11px 14px; background:var(--bg3); cursor:pointer; }
+.mc-rank { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text3); width:16px; flex-shrink:0; }
+.mc-name { flex:1; min-width:0; }
+.mc-name-text { font-weight:600; font-size:14px; color:var(--blue); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mc-code { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text3); }
+.mc-del { background:var(--red-dim); color:var(--red); border:1px solid rgba(240,92,92,.3); border-radius:5px; padding:4px 10px; font-size:11px; cursor:pointer; flex-shrink:0; }
+.mc-arrow { font-size:11px; color:var(--text3); transition:transform .2s; flex-shrink:0; }
+.mc.open .mc-arrow { transform:rotate(90deg); }
+
+.mc-nums { display:grid; grid-template-columns:1fr 1fr 1fr; border-top:1px solid var(--border); }
+.mc-num { padding:10px 6px; text-align:center; border-right:1px solid var(--border); }
+.mc-num:last-child { border-right:none; }
+.mc-num-label { font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
+.mc-num-val { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; }
+.mc-num-val.up { color:var(--blue); }
+.mc-num-val.down { color:var(--red); }
+.mc-num-val.pu { color:var(--purple); }
+.mc-num-val.pd { color:var(--red); }
+
+.mc-detail { display:none; padding:10px 14px; grid-template-columns:1fr 1fr; gap:6px 16px; border-top:1px solid var(--border); }
+.mc.open .mc-detail { display:grid; }
+.mc-di { display:flex; justify-content:space-between; font-size:11px; }
+.mc-di-label { color:var(--text3); }
+.mc-di-val { font-family:'JetBrains Mono',monospace; color:var(--text2); }
+
+.mc-chart { display:none; padding:12px; border-top:1px solid var(--border); }
+.mc.open .mc-chart { display:block; }
+.mc-chart-inner { height:210px; position:relative; }
 </style>
 </head>
 
@@ -980,6 +957,9 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
       </table>
     </div>
   </div>
+
+  <!-- 모바일 카드 -->
+  <div id="mobileCardList"></div>
 
 </div>
 </div>
@@ -2111,18 +2091,15 @@ document.getElementById('globalTableBody').addEventListener('click', function(e)
 });
 
 function toggleTableChart(code) {
-  const dataRow = document.querySelector(`.data-row[data-row-code="${code}"]`);
   if (expandedTableCharts.has(code)) {
     expandedTableCharts.delete(code);
     const row = document.getElementById(`chart-row-${code}`);
     if (row) row.style.display = 'none';
-    if (dataRow) dataRow.classList.remove('expanded');
     if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
   } else {
     expandedTableCharts.add(code);
     const row = document.getElementById(`chart-row-${code}`);
     if (row) { row.style.display = ''; renderTableInlineChart(code); }
-    if (dataRow) dataRow.classList.add('expanded');
   }
 }
 
@@ -2290,37 +2267,33 @@ function renderGlobalTable() {
 
   const frag = document.createDocumentFragment();
   rows.forEach((r, i) => {
-    const isExp = expandedTableCharts.has(r.code);
     const tr = document.createElement('tr');
-    tr.className = 'data-row' + (isExp ? ' expanded' : '');
-    tr.dataset.rowCode = r.code;
     tr.innerHTML = `
-      <td class="center hide-mobile" data-label="#" style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${i+1}</td>
-      <td class="stock-name-cell" data-label="종목명" data-code="${r.code}" style="cursor:pointer">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span class="stock-name-toggle">▶</span>
-          <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;">${r.code}</span>
-          <span style="color:var(--blue);font-weight:600;font-size:14px">${r.name}</span>
-        </div>
+      <td class="center" style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${i+1}</td>
+      <td class="stock-name-cell" data-code="${r.code}" style="cursor:pointer">
+        <span class="stock-name-toggle">▶</span>
+        <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-right:6px">${r.code}</span>
+        <span style="color:var(--blue);font-weight:500">${r.name}</span>
       </td>
-      <td class="num" data-label="최소 계좌수" style="color:var(--text2)">${r.minAcc.toLocaleString()}</td>
-      <td class="num" data-label="최대 계좌수" style="font-weight:600">${r.maxAcc.toLocaleString()}</td>
-      <td class="num" data-label="${actualStart} 계좌수" style="color:var(--text2)">${r.startAccStr}</td>
-      <td class="num" data-label="${actualEnd} 계좌수" style="color:var(--text2)">${r.endAccStr}</td>
-      <td class="num ${r.accClass}" data-label="기간 매집(%)">${r.accStr}</td>
-      <td class="num" data-label="현 매집(%)" style="font-weight:600">${r.curStr}</td>
-      <td class="num ${r.dailyClass}" data-label="일 매집률">${r.dailyStr}</td>
-      <td class="center manage-cell" data-label="관리">
+      <td class="num" style="color:var(--text2)">${r.minAcc.toLocaleString()}</td>
+      <td class="num" style="font-weight:600">${r.maxAcc.toLocaleString()}</td>
+      <td class="num" style="color:var(--text2)">${r.startAccStr}</td>
+      <td class="num" style="color:var(--text2)">${r.endAccStr}</td>
+      <td class="num ${r.accClass}">${r.accStr}</td>
+      <td class="num" style="font-weight:600">${r.curStr}</td>
+      <td class="num ${r.dailyClass}">${r.dailyStr}</td>
+      <td class="center">
         <button class="btn btn-sm remove-stock-btn" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(248,81,73,.3)" data-code="${r.code}">삭제</button>
       </td>`;
     frag.appendChild(tr);
 
+    const isExp = expandedTableCharts.has(r.code);
     const chartTr = document.createElement('tr');
     chartTr.id = `chart-row-${r.code}`;
     chartTr.className = 'chart-row';
     chartTr.style.display = isExp ? '' : 'none';
     chartTr.innerHTML = `
-      <td colspan="10" class="chart-td">
+      <td colspan="10">
         <div class="chart-row-inner">
           <canvas id="table-chart-${r.code}"></canvas>
         </div>
@@ -2330,6 +2303,137 @@ function renderGlobalTable() {
 
   tbody.appendChild(frag);
   expandedTableCharts.forEach(code => renderTableInlineChart(code));
+  renderMobileCards(rows, actualStart, actualEnd);
+}
+
+// ══════════════════════════════════════════════════════
+// 모바일 카드 렌더링
+// ══════════════════════════════════════════════════════
+const _mcCharts = {};
+
+function renderMobileCards(rows, actualStart, actualEnd) {
+  const el = document.getElementById('mobileCardList');
+  if (!el) return;
+  Object.values(_mcCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  for (const k in _mcCharts) delete _mcCharts[k];
+
+  if (!rows.length) {
+    el.innerHTML = '<p style="text-align:center;padding:32px;color:var(--text3);font-size:13px">종목을 추가하면 여기에 표시됩니다.</p>';
+    return;
+  }
+
+  el.innerHTML = rows.map((r, i) => {
+    const ac = r.accClass   === 'val-down' ? 'down' : 'up';
+    const dc = r.dailyClass === 'val-purple-down' ? 'pd' : 'pu';
+    return `<div class="mc" data-code="${r.code}">
+      <div class="mc-head">
+        <span class="mc-rank">${i+1}</span>
+        <div class="mc-name">
+          <div class="mc-name-text">${r.name}</div>
+          <div class="mc-code">${r.code}</div>
+        </div>
+        <button class="mc-del" data-del="${r.code}">삭제</button>
+        <span class="mc-arrow">▶</span>
+      </div>
+      <div class="mc-nums">
+        <div class="mc-num">
+          <div class="mc-num-label">기간 매집</div>
+          <div class="mc-num-val ${ac}">${r.accStr}%</div>
+        </div>
+        <div class="mc-num">
+          <div class="mc-num-label">현 매집</div>
+          <div class="mc-num-val up">${r.curStr}%</div>
+        </div>
+        <div class="mc-num">
+          <div class="mc-num-label">일 매집률</div>
+          <div class="mc-num-val ${dc}">${r.dailyStr}%</div>
+        </div>
+      </div>
+      <div class="mc-detail">
+        <div class="mc-di"><span class="mc-di-label">최소 계좌수</span><span class="mc-di-val">${r.minAcc.toLocaleString()}</span></div>
+        <div class="mc-di"><span class="mc-di-label">최대 계좌수</span><span class="mc-di-val">${r.maxAcc.toLocaleString()}</span></div>
+        <div class="mc-di"><span class="mc-di-label">${actualStart} 계좌수</span><span class="mc-di-val">${r.startAccStr}</span></div>
+        <div class="mc-di"><span class="mc-di-label">${actualEnd} 계좌수</span><span class="mc-di-val">${r.endAccStr}</span></div>
+      </div>
+      <div class="mc-chart"><div class="mc-chart-inner"><canvas id="mcc-${r.code}"></canvas></div></div>
+    </div>`;
+  }).join('');
+
+  // 이벤트 위임: 헤더 클릭(펼침) + 삭제 버튼
+  el.onclick = function(e) {
+    const delBtn = e.target.closest('[data-del]');
+    if (delBtn) {
+      const code = delBtn.dataset.del;
+      tableSelectedStocks.delete(code);
+      expandedTableCharts.delete(code);
+      if (_mcCharts[code]) { try { _mcCharts[code].destroy(); } catch(e){} delete _mcCharts[code]; }
+      renderGlobalTable(); saveLocalStocks();
+      return;
+    }
+    const head = e.target.closest('.mc-head');
+    if (head) {
+      const card = head.closest('.mc');
+      const code = card.dataset.code;
+      card.classList.toggle('open');
+      if (card.classList.contains('open')) {
+        expandedTableCharts.add(code);
+        _renderMcChart(code);
+      } else {
+        expandedTableCharts.delete(code);
+        if (_mcCharts[code]) { try { _mcCharts[code].destroy(); } catch(e){} delete _mcCharts[code]; }
+      }
+    }
+  };
+
+  // 이미 펼쳐진 카드 복원
+  expandedTableCharts.forEach(code => {
+    const card = el.querySelector(`.mc[data-code="${code}"]`);
+    if (card) { card.classList.add('open'); _renderMcChart(code); }
+  });
+}
+
+function _renderMcChart(code) {
+  const canvas = document.getElementById('mcc-' + code);
+  if (!canvas) return;
+  if (_mcCharts[code]) { try { _mcCharts[code].destroy(); } catch(e){} }
+
+  const start = document.getElementById('globalStartDate').value;
+  const end   = document.getElementById('globalEndDate').value;
+  let data = allParsedData.filter(d => d.code === code && d.date >= start && d.date <= end);
+  data.sort((a,b) => new Date(a.date) - new Date(b.date));
+  if (!data.length) return;
+
+  const prices = data.map(d => d.price);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad  = (maxP - minP) === 0 ? minP * .1 : (maxP - minP) * .5;
+
+  const fullData = allParsedData.filter(d => d.code === code);
+  const waveMarkers = data.length === fullData.length ? calculateWaves(data) : [];
+
+  _mcCharts[code] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.date),
+      datasets: [
+        { label:'현재가',    data: prices,               borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, fill:true,  tension:0.2, yAxisID:'y'  },
+        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, fill:false, tension:0.2, yAxisID:'y1' }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, animation:{duration:200},
+      plugins: { legend:{display:false}, tooltip:{backgroundColor:'#232220',borderColor:'#3d3b37',borderWidth:1}, waveMarkers },
+      interaction: { mode:'index', intersect:false },
+      scales: {
+        x: { grid:{color:'#2e2c29'}, ticks:{
+          maxTicksLimit:4, minRotation:30, maxRotation:45, autoSkip:true, font:{size:9},
+          callback(v){ const l=this.getLabelForValue(v); if(!l) return ''; const p=l.split('-'); return p.length===3?p[1]+'/'+p[2]:l; }
+        }},
+        y:  { position:'left',  grid:{color:'#2e2c29'}, suggestedMin:Math.max(0,minP-pad), suggestedMax:maxP+pad, ticks:{font:{size:9}, callback:v=>v>=10000?(v/10000).toFixed(0)+'만':v.toLocaleString()} },
+        y1: { position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:9}, callback:v=>v>=10000?(v/10000).toFixed(0)+'만':v.toLocaleString()} }
+      }
+    },
+    plugins: [waveDrawerPlugin]
+  });
 }
 </script>
 </body>
