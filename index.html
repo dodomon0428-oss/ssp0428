@@ -1937,12 +1937,12 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         {
           label: '현재가 (원)', data: priceData,
           backgroundColor: 'rgba(232,160,32,0.12)', borderColor: '#e8a020',
-          borderWidth: 2, pointRadius: 0, pointHitRadius: 15, fill: true, tension: 0.2, yAxisID: 'y'
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, fill: true, tension: 0.2, yAxisID: 'y'
         },
         {
           label: '보유계좌수 (계좌)', data: accountsData,
           backgroundColor: 'rgba(56,189,248,0.08)', borderColor: '#38bdf8',
-          borderWidth: 2, pointRadius: 0, pointHitRadius: 15, fill: false, tension: 0.2, yAxisID: 'y1'
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, fill: false, tension: 0.2, yAxisID: 'y1'
         }
       ]
     },
@@ -2244,8 +2244,8 @@ function renderTableInlineChart(code) {
     data: {
       labels: data.map(d=>d.date),
       datasets: [
-        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:true, tension:0.2, yAxisID:'y' },
-        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:false, tension:0.2, yAxisID:'y1' }
+        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:true, tension:0.2, yAxisID:'y' },
+        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:false, tension:0.2, yAxisID:'y1' }
       ]
     },
     options: {
@@ -2545,8 +2545,8 @@ function _renderMcChart(code) {
     data: {
       labels: data.map(d => d.date),
       datasets: [
-        { label:'현재가',    data: prices,               borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:true,  tension:0.2, yAxisID:'y'  },
-        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:false, tension:0.2, yAxisID:'y1' }
+        { label:'현재가',    data: prices,               borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:true,  tension:0.2, yAxisID:'y'  },
+        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:false, tension:0.2, yAxisID:'y1' }
       ]
     },
     options: {
