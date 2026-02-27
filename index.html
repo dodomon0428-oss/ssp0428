@@ -709,6 +709,25 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 .mc-chart { display:none; padding:12px; border-top:1px solid var(--border); }
 .mc.open .mc-chart { display:block; }
 .mc-chart-inner { height:210px; position:relative; }
+/* 인라인 차트 리셋 버튼 오버레이 */
+.chart-reset-overlay { position:absolute; top:6px; right:6px; z-index:10; display:none; }
+.chart-reset-overlay.visible { display:block; }
+.chart-reset-overlay button { padding:3px 9px; font-size:10px; background:var(--bg3); color:var(--text2); border:1px solid var(--border2); border-radius:4px; cursor:pointer; }
+.chart-reset-overlay button:hover { color:var(--blue); border-color:var(--blue); }
+
+/* 인라인 차트 리셋 버튼 */
+.chart-reset-overlay {
+  position:absolute; top:6px; right:6px; z-index:10;
+  display:none;
+}
+.chart-reset-overlay.visible { display:block; }
+.chart-reset-overlay button {
+  padding:3px 9px; font-size:10px;
+  background:var(--bg3); color:var(--text2);
+  border:1px solid var(--border2); border-radius:4px;
+  cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+}
+.chart-reset-overlay button:hover { color:var(--blue); border-color:var(--blue); }
 </style>
 </head>
 
@@ -1597,6 +1616,15 @@ const ZOOM_OPTIONS = {
   },
   limits: { x: { minRange: 5 } }
 };
+function resetTableChart(code) {
+  if (tableChartInstances[code]) tableChartInstances[code].resetZoom();
+  document.getElementById('reset-overlay-' + code)?.classList.remove('visible');
+}
+function resetMcChart(code) {
+  if (_mcCharts[code]) _mcCharts[code].resetZoom();
+  document.getElementById('mc-reset-overlay-' + code)?.classList.remove('visible');
+}
+
 function calculateWaves(data) {
   let markers = new Array(data.length).fill(null);
   if (data.length === 0) return markers;
@@ -1918,20 +1946,17 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
       },
       interaction: { mode: 'index', intersect: false },
       scales: {
-        x: { 
-          grid: { color: '#2e2c29' }, 
+        x: {
+          grid: { color: '#2e2c29' },
           ticks: {
-            maxTicksLimit: 6,
-            minRotation: 0, // 강제 회전 해제 (가로 출력)
-            maxRotation: 0, // 강제 회전 해제 (가로 출력)
-            autoSkip: true,
-            autoSkipPadding: 30,
+            maxTicksLimit: window.innerWidth < 768 ? 5 : 6,
+            minRotation: 0, maxRotation: 0,
+            autoSkip: true, autoSkipPadding: 30,
             font: { size: 10 },
             callback: function(val) {
               const label = this.getLabelForValue(val);
               if (!label) return '';
               const p = label.split('-');
-              // 공간 절약을 위해 연도를 뒷자리 2개로 표기 (예: 25/04/11)
               if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
               return label;
             }
@@ -1939,17 +1964,27 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         },
         y: {
           type: 'linear', position: 'left',
-          title: { display: true, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } },
+          title: { display: window.innerWidth >= 768, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } },
           grid: { color: '#2e2c29' },
           suggestedMin: Math.max(0, minP - pad),
           suggestedMax: maxP + pad,
-          ticks: { callback: v => v.toLocaleString() }
+          ticks: {
+            font: { size: window.innerWidth < 768 ? 9 : 11 },
+            callback: v => window.innerWidth < 768
+              ? (v >= 10000 ? (v/10000).toFixed(0)+'만' : v.toLocaleString())
+              : v.toLocaleString()
+          }
         },
         y1: {
           type: 'linear', position: 'right',
-          title: { display: true, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } },
+          title: { display: window.innerWidth >= 768, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } },
           grid: { drawOnChartArea: false },
-          ticks: { callback: v => v.toLocaleString() }
+          ticks: {
+            font: { size: window.innerWidth < 768 ? 9 : 11 },
+            callback: v => window.innerWidth < 768
+              ? (v >= 10000 ? (v/10000).toFixed(0)+'만' : v.toLocaleString())
+              : v.toLocaleString()
+          }
         }
       }
     },
@@ -2178,7 +2213,12 @@ function renderTableInlineChart(code) {
         legend:{display:false},
         tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 },
         waveMarkers: filteredWaveMarkers,
-        zoom: ZOOM_OPTIONS
+        zoom: {
+          pan:  { enabled:true, mode:'x', onPan(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); } },
+          zoom: { wheel:{enabled:true,speed:0.1}, pinch:{enabled:true}, mode:'x',
+                  onZoom(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); } },
+          limits: { x:{minRange:5} }
+        }
       },
       interaction: { mode:'index', intersect:false },
       scales: {
@@ -2319,7 +2359,10 @@ function renderGlobalTable() {
     chartTr.style.display = isExp ? '' : 'none';
     chartTr.innerHTML = `
       <td colspan="10">
-        <div class="chart-row-inner">
+        <div class="chart-row-inner" style="position:relative">
+          <div class="chart-reset-overlay" id="reset-overlay-${r.code}">
+            <button onclick="resetTableChart('${r.code}')">↺ 초기화</button>
+          </div>
           <canvas id="table-chart-${r.code}"></canvas>
         </div>
       </td>`;
@@ -2380,7 +2423,14 @@ function renderMobileCards(rows, actualStart, actualEnd) {
         <div class="mc-di"><span class="mc-di-label">${actualStart} 계좌수</span><span class="mc-di-val">${r.startAccStr}</span></div>
         <div class="mc-di"><span class="mc-di-label">${actualEnd} 계좌수</span><span class="mc-di-val">${r.endAccStr}</span></div>
       </div>
-      <div class="mc-chart"><div class="mc-chart-inner"><canvas id="mcc-${r.code}"></canvas></div></div>
+      <div class="mc-chart">
+        <div class="mc-chart-inner" style="position:relative">
+          <div class="chart-reset-overlay" id="mc-reset-overlay-${r.code}">
+            <button onclick="resetMcChart('${r.code}')">↺ 초기화</button>
+          </div>
+          <canvas id="mcc-${r.code}"></canvas>
+        </div>
+      </div>
     </div>`;
   }).join('');
 
@@ -2452,7 +2502,14 @@ function _renderMcChart(code) {
     },
     options: {
       responsive:true, maintainAspectRatio:false, animation:{duration:200},
-      plugins: { legend:{display:false}, tooltip:{backgroundColor:'#232220',borderColor:'#3d3b37',borderWidth:1}, waveMarkers, zoom: ZOOM_OPTIONS },
+      plugins: { legend:{display:false}, tooltip:{backgroundColor:'#232220',borderColor:'#3d3b37',borderWidth:1}, waveMarkers,
+        zoom: {
+          pan:  { enabled:true, mode:'x', onPan(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); } },
+          zoom: { wheel:{enabled:true,speed:0.1}, pinch:{enabled:true}, mode:'x',
+                  onZoom(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); } },
+          limits: { x:{minRange:5} }
+        }
+      },
       interaction: { mode:'index', intersect:false },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
