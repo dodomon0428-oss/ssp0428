@@ -1598,9 +1598,11 @@ function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 // ══════════════════════════════════════════════════════
 
 // ── 공통 줌/패닝 옵션 ──────────────────────────
-// 터치 제스처 중 툴팁 억제
-// 두 손가락 제스처 중 툴팁 차단: 캔버스에 투명 오버레이 씌우기
+// 터치 전용: 두 손가락 제스처 중 툴팁 차단 (PC 마우스 휠은 해당 없음)
+function _isTouchDevice() { return window.matchMedia('(hover:none)').matches; }
+
 function _onGestureStart(chart) {
+  if (!_isTouchDevice()) return;  // PC에서는 오버레이 안 씌움
   if (!chart?.canvas) return;
   const canvas = chart.canvas;
   let overlay = canvas._tooltipBlocker;
@@ -1616,8 +1618,12 @@ function _onGestureStart(chart) {
 function _onGestureEnd(chart) {
   if (!chart?.canvas) return;
   const overlay = chart.canvas._tooltipBlocker;
-  // 손가락 뗀 후 잠깐 유지 (관성 스크롤 대응)
   setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 250);
+}
+
+// PC: 차트 캔버스 위 마우스 휠 시 페이지 스크롤 방지
+function _blockWheelScroll(canvas) {
+  canvas.addEventListener('wheel', e => { e.preventDefault(); }, { passive: false });
 }
 
 function _showResetBtn() {
@@ -1639,7 +1645,11 @@ const ZOOM_OPTIONS = {
     wheel:  { enabled: true, speed: 0.1 },
     pinch:  { enabled: true },
     mode:   'x',
-    onZoomStart({ chart }) { _onGestureStart(chart); },
+    onZoomStart({ chart, event }) {
+      // 마우스 휠 줌 시 페이지 스크롤 방지
+      if (event?.cancelable) event.preventDefault();
+      _onGestureStart(chart);
+    },
     onZoom({ chart }) { _showResetBtn(); },
     onZoomComplete({ chart }) { _showResetBtn(); _onGestureEnd(chart); }
   },
@@ -1918,6 +1928,7 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
   const range = maxP - minP;
   const pad = range === 0 ? minP * 0.1 : range * 0.5;
 
+  _blockWheelScroll(ctx.canvas);
   combinedChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
@@ -1926,12 +1937,12 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         {
           label: '현재가 (원)', data: priceData,
           backgroundColor: 'rgba(232,160,32,0.12)', borderColor: '#e8a020',
-          borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2, yAxisID: 'y'
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 15, fill: true, tension: 0.2, yAxisID: 'y'
         },
         {
           label: '보유계좌수 (계좌)', data: accountsData,
           backgroundColor: 'rgba(56,189,248,0.08)', borderColor: '#38bdf8',
-          borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2, yAxisID: 'y1'
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 15, fill: false, tension: 0.2, yAxisID: 'y1'
         }
       ]
     },
@@ -1973,7 +1984,7 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
           searchAndRender();
         }
       },
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode: 'index', intersect: true },
       scales: {
         x: {
           grid: { color: '#2e2c29' },
@@ -2227,13 +2238,14 @@ function renderTableInlineChart(code) {
     return idx !== -1 ? fullWaveMarkers[idx] : null;
   });
 
+  _blockWheelScroll(canvas);
   tableChartInstances[code] = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels: data.map(d=>d.date),
       datasets: [
-        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, fill:true, tension:0.2, yAxisID:'y' },
-        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, fill:false, tension:0.2, yAxisID:'y1' }
+        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:true, tension:0.2, yAxisID:'y' },
+        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:false, tension:0.2, yAxisID:'y1' }
       ]
     },
     options: {
@@ -2256,7 +2268,7 @@ function renderTableInlineChart(code) {
           limits: { x:{minRange:5} }
         }
       },
-      interaction: { mode:'index', intersect:false },
+      interaction: { mode:'index', intersect:true },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
           maxTicksLimit: 5,
@@ -2527,13 +2539,14 @@ function _renderMcChart(code) {
     return idx !== -1 ? fullWaveMarkers[idx] : null;
   });
 
+  _blockWheelScroll(canvas);
   _mcCharts[code] = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels: data.map(d => d.date),
       datasets: [
-        { label:'현재가',    data: prices,               borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, fill:true,  tension:0.2, yAxisID:'y'  },
-        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, fill:false, tension:0.2, yAxisID:'y1' }
+        { label:'현재가',    data: prices,               borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:true,  tension:0.2, yAxisID:'y'  },
+        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:15, fill:false, tension:0.2, yAxisID:'y1' }
       ]
     },
     options: {
@@ -2553,7 +2566,7 @@ function _renderMcChart(code) {
           limits: { x:{minRange:5} }
         }
       },
-      interaction: { mode:'index', intersect:false },
+      interaction: { mode:'index', intersect:true },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
           maxTicksLimit:4, minRotation:30, maxRotation:45, autoSkip:true, font:{size:9},
