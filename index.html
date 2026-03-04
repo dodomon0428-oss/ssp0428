@@ -4,10 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주식 데이터 시각화 대시보드</title>
-<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=54611"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://apis.google.com/js/api.js" async></script>
@@ -667,67 +664,72 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   
   .table-period-bar { flex-direction: column; align-items: flex-start; padding: 12px; gap: 12px; }
   
-  td, th { padding: 10px; font-size: 12px; }
-  td.num { font-size: 11px; }
+  /* ── 모바일 종목 비교 테이블: 반응형 카드 레이아웃 전환 ── */
+  table { min-width: 100%; border: none; }
+  thead { display: none; /* 모바일에서는 열 제목 숨김 */ }
+  .table-scroll { overflow-y: visible; max-height: none; overflow-x: hidden; }
+  tbody { display: flex; flex-direction: column; gap: 16px; }
+
+  tr.data-row {
+    display: flex; flex-direction: column;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+  tr.data-row.expanded {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+  }
+
+  tr.data-row > td {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    text-align: right;
+  }
+  tr.data-row > td:last-child { border-bottom: none; }
+
+  tr.data-row > td::before {
+    content: attr(data-label);
+    font-size: 11px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase;
+  }
+
+  td.hide-mobile { display: none !important; }
+
+  td.stock-name-cell {
+    background: var(--bg2);
+    border-bottom: 2px solid var(--border);
+    justify-content: flex-start;
+  }
+  td.stock-name-cell::before { display: none; }
+
+  td.manage-cell { padding: 12px 16px; }
+  td.manage-cell::before { display: none; }
+  td.manage-cell .btn-sm { width: 100%; padding: 10px 0; font-size: 13px; }
+
+  tr.chart-row {
+    display: block;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-bottom-left-radius: var(--radius-lg);
+    border-bottom-right-radius: var(--radius-lg);
+    margin-top: -16px; /* tbody gap과 상쇄시켜 data-row와 결합 */
+    padding: 12px;
+  }
+
+  td.chart-td { display: block; padding: 0; border: none; text-align: left; }
+  td.chart-td::before { display: none; }
   
-  td.center .btn-sm { width: 100%; padding: 8px 0; }
-
-  /* 모바일: PC 테이블 숨기고 카드 표시 */
-  .data-table-wrap { display: none !important; }
-  #mobileCardList  { display: block !important; }
+  tr.empty-row { display: block; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  tr.empty-row td { display: block; text-align: center; }
+  tr.empty-row td::before { display: none; }
 }
-
-/* ── 모바일 카드 (기본: 숨김) ─────────────────── */
-#mobileCardList { display: none; }
-
-.mc { background:var(--bg2); border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
-.mc-head { display:flex; align-items:center; gap:8px; padding:11px 14px; background:var(--bg3); cursor:pointer; }
-.mc-rank { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text3); width:16px; flex-shrink:0; }
-.mc-name { flex:1; min-width:0; }
-.mc-name-text { font-weight:600; font-size:14px; color:var(--blue); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.mc-code { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text3); }
-.mc-del { background:var(--red-dim); color:var(--red); border:1px solid rgba(240,92,92,.3); border-radius:5px; padding:4px 10px; font-size:11px; cursor:pointer; flex-shrink:0; }
-.mc-arrow { font-size:11px; color:var(--text3); transition:transform .2s; flex-shrink:0; }
-.mc.open .mc-arrow { transform:rotate(90deg); }
-
-.mc-nums { display:grid; grid-template-columns:1fr 1fr 1fr; border-top:1px solid var(--border); }
-.mc-num { padding:10px 6px; text-align:center; border-right:1px solid var(--border); }
-.mc-num:last-child { border-right:none; }
-.mc-num-label { font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
-.mc-num-val { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; }
-.mc-num-val.up { color:var(--blue); }
-.mc-num-val.down { color:var(--red); }
-.mc-num-val.pu { color:var(--purple); }
-.mc-num-val.pd { color:var(--red); }
-
-.mc-detail { display:none; padding:10px 14px; grid-template-columns:1fr 1fr; gap:6px 16px; border-top:1px solid var(--border); }
-.mc.open .mc-detail { display:grid; }
-.mc-di { display:flex; justify-content:space-between; font-size:11px; }
-.mc-di-label { color:var(--text3); }
-.mc-di-val { font-family:'JetBrains Mono',monospace; color:var(--text2); }
-
-.mc-chart { display:none; padding:12px; border-top:1px solid var(--border); }
-.mc.open .mc-chart { display:block; }
-.mc-chart-inner { height:210px; position:relative; }
-/* 인라인 차트 리셋 버튼 오버레이 */
-.chart-reset-overlay { position:absolute; top:6px; right:6px; z-index:10; display:none; }
-.chart-reset-overlay.visible { display:block; }
-.chart-reset-overlay button { padding:3px 9px; font-size:10px; background:var(--bg3); color:var(--text2); border:1px solid var(--border2); border-radius:4px; cursor:pointer; }
-.chart-reset-overlay button:hover { color:var(--blue); border-color:var(--blue); }
-
-/* 인라인 차트 리셋 버튼 */
-.chart-reset-overlay {
-  position:absolute; top:6px; right:6px; z-index:10;
-  display:none;
-}
-.chart-reset-overlay.visible { display:block; }
-.chart-reset-overlay button {
-  padding:3px 9px; font-size:10px;
-  background:var(--bg3); color:var(--text2);
-  border:1px solid var(--border2); border-radius:4px;
-  cursor:pointer; font-family:'Noto Sans KR',sans-serif;
-}
-.chart-reset-overlay button:hover { color:var(--blue); border-color:var(--blue); }
 </style>
 </head>
 
@@ -829,8 +831,14 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
       
       <!-- 체크박스와 텍스트 버튼 분리 -->
       <div class="period-group">
-        <button type="button" class="btn btn-sm btn-ghost standalone-pill period-btn" data-days="thisYear">올해</button>
-        
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="today" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="today">오늘</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="thisYear" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="thisYear">올해</button>
+        </div>
         <div class="period-wrapper">
           <input type="checkbox" class="period-checkbox" data-days="20" title="요약 추가">
           <button type="button" class="period-btn-txt period-btn" data-days="20">20일</button>
@@ -867,10 +875,9 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="chart-wrap-outer">
     <div class="chart-title-bar">
       <span class="chart-title-text" id="combinedChartTitle">종목 추이 종합</span>
-      <div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--text2)">
+      <div style="display:flex;gap:14px;font-size:11px;color:var(--text2)">
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#e8a020;display:inline-block;border-radius:2px"></span>현재가</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#38bdf8;display:inline-block;border-radius:2px"></span>보유계좌수</span>
-        <button id="resetZoomBtn" onclick="if(combinedChartInstance)combinedChartInstance.resetZoom()" title="확대 초기화" style="display:none;padding:2px 8px;font-size:10px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);border-radius:4px;cursor:pointer">↺ 초기화</button>
       </div>
     </div>
     <div class="chart-inner">
@@ -945,6 +952,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="table-period-bar">
     <span class="table-period-label">기간 선택</span>
     <div class="period-group">
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="today">오늘</button>
       <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="thisYear">올해</button>
       <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="20">20일</button>
       <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="40">40일</button>
@@ -979,9 +987,6 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
       </table>
     </div>
   </div>
-
-  <!-- 모바일 카드 -->
-  <div id="mobileCardList"></div>
 
 </div>
 </div>
@@ -1596,74 +1601,6 @@ function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 // ══════════════════════════════════════════════════════
 // 파동 탐색 알고리즘 (순방향/소급 탐색으로 전면 수정)
 // ══════════════════════════════════════════════════════
-
-// ── 공통 줌/패닝 옵션 ──────────────────────────
-// 터치 전용: 두 손가락 제스처 중 툴팁 차단 (PC 마우스 휠은 해당 없음)
-function _isTouchDevice() { return window.matchMedia('(hover:none)').matches; }
-
-function _onGestureStart(chart) {
-  if (!_isTouchDevice()) return;  // PC에서는 오버레이 안 씌움
-  if (!chart?.canvas) return;
-  const canvas = chart.canvas;
-  let overlay = canvas._tooltipBlocker;
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.style.cssText = 'position:absolute;inset:0;z-index:99;touch-action:pinch-zoom pan-x;';
-    canvas.parentElement.style.position = 'relative';
-    canvas.parentElement.appendChild(overlay);
-    canvas._tooltipBlocker = overlay;
-  }
-  overlay.style.display = 'block';
-}
-function _onGestureEnd(chart) {
-  if (!chart?.canvas) return;
-  const overlay = chart.canvas._tooltipBlocker;
-  setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 250);
-}
-
-// PC: 차트 캔버스 위 마우스 휠 시 페이지 스크롤 방지
-function _blockWheelScroll(canvas) {
-  canvas.addEventListener('wheel', e => { e.preventDefault(); }, { passive: false });
-}
-
-function _showResetBtn() {
-  const btn = document.getElementById('resetZoomBtn');
-  if (btn) btn.style.display = '';
-}
-function _hideResetBtn() {
-  const btn = document.getElementById('resetZoomBtn');
-  if (btn) btn.style.display = 'none';
-}
-const ZOOM_OPTIONS = {
-  pan: {
-    enabled: true, mode: 'x',
-    onPanStart({ chart }) { _onGestureStart(chart); },
-    onPan({ chart }) { _showResetBtn(); },
-    onPanComplete({ chart }) { _showResetBtn(); _onGestureEnd(chart); }
-  },
-  zoom: {
-    wheel:  { enabled: true, speed: 0.1 },
-    pinch:  { enabled: true },
-    mode:   'x',
-    onZoomStart({ chart, event }) {
-      // 마우스 휠 줌 시 페이지 스크롤 방지
-      if (event?.cancelable) event.preventDefault();
-      _onGestureStart(chart);
-    },
-    onZoom({ chart }) { _showResetBtn(); },
-    onZoomComplete({ chart }) { _showResetBtn(); _onGestureEnd(chart); }
-  },
-  limits: { x: { minRange: 5 } }
-};
-function resetTableChart(code) {
-  if (tableChartInstances[code]) tableChartInstances[code].resetZoom();
-  document.getElementById('reset-overlay-' + code)?.classList.remove('visible');
-}
-function resetMcChart(code) {
-  if (_mcCharts[code]) _mcCharts[code].resetZoom();
-  document.getElementById('mc-reset-overlay-' + code)?.classList.remove('visible');
-}
-
 function calculateWaves(data) {
   let markers = new Array(data.length).fill(null);
   if (data.length === 0) return markers;
@@ -1825,20 +1762,39 @@ document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
         document.getElementById('startDateInput').value = dates[0];
       }
     } else if (daysAttr === 'thisYear') {
-      let lastYearDate = dates[0];
-      const currentMaxYear = new Date(dates.at(-1)).getFullYear();
-      for(let i = dates.length - 1; i >= 0; i--) {
+      let endIdx = dates.length - 1;
+      if (endVal) {
+        const t = new Date(endVal).getTime();
+        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+      }
+      let startIdx = 0;
+      const currentMaxYear = new Date(dates[endIdx]).getFullYear();
+      for(let i = endIdx; i >= 0; i--) {
         if(new Date(dates[i]).getFullYear() < currentMaxYear) {
-          lastYearDate = dates[i];
+          startIdx = i;
           break;
         }
       }
       if (isTable) {
-        document.getElementById('globalEndDate').value = dates.at(-1);
-        document.getElementById('globalStartDate').value = lastYearDate;
+        document.getElementById('globalEndDate').value = dates[endIdx];
+        document.getElementById('globalStartDate').value = dates[startIdx];
       } else {
-        document.getElementById('endDateInput').value = dates.at(-1);
-        document.getElementById('startDateInput').value = lastYearDate;
+        document.getElementById('endDateInput').value = dates[endIdx];
+        document.getElementById('startDateInput').value = dates[startIdx];
+      }
+    } else if (daysAttr === 'today') {
+      let endIdx = dates.length - 1;
+      if (endVal) {
+        const t = new Date(endVal).getTime();
+        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+      }
+      const startIdx = Math.max(0, endIdx - 1);
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates[endIdx];
+        document.getElementById('globalStartDate').value = dates[startIdx];
+      } else {
+        document.getElementById('endDateInput').value = dates[endIdx];
+        document.getElementById('startDateInput').value = dates[startIdx];
       }
     } else {
       const days = +daysAttr;
@@ -1928,7 +1884,6 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
   const range = maxP - minP;
   const pad = range === 0 ? minP * 0.1 : range * 0.5;
 
-  _blockWheelScroll(ctx.canvas);
   combinedChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
@@ -1937,12 +1892,12 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         {
           label: '현재가 (원)', data: priceData,
           backgroundColor: 'rgba(232,160,32,0.12)', borderColor: '#e8a020',
-          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, fill: true, tension: 0.2, yAxisID: 'y'
+          borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2, yAxisID: 'y'
         },
         {
           label: '보유계좌수 (계좌)', data: accountsData,
           backgroundColor: 'rgba(56,189,248,0.08)', borderColor: '#38bdf8',
-          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, fill: false, tension: 0.2, yAxisID: 'y1'
+          borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2, yAxisID: 'y1'
         }
       ]
     },
@@ -1962,8 +1917,7 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
             }
           }
         },
-        legend: { display: false },
-        zoom: ZOOM_OPTIONS
+        legend: { display: false }
       },
       onClick(event, elements, chart) {
         if (!elements.length) return;
@@ -1984,19 +1938,22 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
           searchAndRender();
         }
       },
-      interaction: { mode: 'index', intersect: true },
+      interaction: { mode: 'index', intersect: false },
       scales: {
-        x: {
-          grid: { color: '#2e2c29' },
+        x: { 
+          grid: { color: '#2e2c29' }, 
           ticks: {
-            maxTicksLimit: window.innerWidth < 768 ? 5 : 6,
-            minRotation: 0, maxRotation: 0,
-            autoSkip: true, autoSkipPadding: 30,
+            maxTicksLimit: 6,
+            minRotation: 0, // 강제 회전 해제 (가로 출력)
+            maxRotation: 0, // 강제 회전 해제 (가로 출력)
+            autoSkip: true,
+            autoSkipPadding: 30,
             font: { size: 10 },
             callback: function(val) {
               const label = this.getLabelForValue(val);
               if (!label) return '';
               const p = label.split('-');
+              // 공간 절약을 위해 연도를 뒷자리 2개로 표기 (예: 25/04/11)
               if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
               return label;
             }
@@ -2004,27 +1961,17 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         },
         y: {
           type: 'linear', position: 'left',
-          title: { display: window.innerWidth >= 768, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } },
+          title: { display: true, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } },
           grid: { color: '#2e2c29' },
           suggestedMin: Math.max(0, minP - pad),
           suggestedMax: maxP + pad,
-          ticks: {
-            font: { size: window.innerWidth < 768 ? 9 : 11 },
-            callback: v => window.innerWidth < 768
-              ? (v >= 10000 ? (v/10000).toFixed(0)+'만' : v.toLocaleString())
-              : v.toLocaleString()
-          }
+          ticks: { callback: v => v.toLocaleString() }
         },
         y1: {
           type: 'linear', position: 'right',
-          title: { display: window.innerWidth >= 768, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } },
+          title: { display: true, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } },
           grid: { drawOnChartArea: false },
-          ticks: {
-            font: { size: window.innerWidth < 768 ? 9 : 11 },
-            callback: v => window.innerWidth < 768
-              ? (v >= 10000 ? (v/10000).toFixed(0)+'만' : v.toLocaleString())
-              : v.toLocaleString()
-          }
+          ticks: { callback: v => v.toLocaleString() }
         }
       }
     },
@@ -2071,20 +2018,40 @@ function updateCheckboxSummaries() {
 
   checked.forEach(chk => {
     const attr = chk.dataset.days;
-    const startIdx = attr === 'all' ? 0 : Math.max(0, endIdx - +attr);
+    let startIdx = 0;
+
+    if (attr === 'all') {
+      startIdx = 0;
+    } else if (attr === 'thisYear') {
+      const currentMaxYear = new Date(dates[endIdx]).getFullYear();
+      startIdx = endIdx;
+      for (let i = endIdx; i >= 0; i--) {
+        if (new Date(dates[i]).getFullYear() < currentMaxYear) {
+          startIdx = i;
+          break;
+        }
+      }
+    } else if (attr === 'today') {
+      startIdx = Math.max(0, endIdx - 1);
+    } else {
+      startIdx = Math.max(0, endIdx - +attr);
+    }
+
     const sd = dates[startIdx], ed = dates[endIdx];
     const s = full.find(d => d.date === sd), e = full.find(d => d.date === ed);
 
     if (s && e && maxAcc > 0) {
       const val = ((s.accounts - e.accounts) * 100) / maxAcc;
+      let labelStr = attr === 'all' ? '전체 기간 매집률' : attr === 'thisYear' ? '올해 매집률' : attr === 'today' ? '오늘 매집률' : `${attr}일 매집률`;
       list.appendChild(makeSummaryCard({
-        label: attr === 'all' ? '전체 기간 매집률' : `${attr}일 매집률`,
+        label: labelStr,
         date: `${sd} ~ ${ed}`,
         value: val.toFixed(2) + '%',
         valClass: val < 0 ? 'down' : 'up'
       }));
     } else {
-      list.appendChild(makeSummaryCard({ label: attr==='all'?'전체':''+attr+'일', date:'', value: '데이터 없음', valClass:'down' }));
+      let labelStr = attr === 'all' ? '전체' : attr === 'thisYear' ? '올해' : attr === 'today' ? '오늘' : `${attr}일`;
+      list.appendChild(makeSummaryCard({ label: labelStr, date:'', value: '데이터 없음', valClass:'down' }));
     }
   });
 
@@ -2190,15 +2157,18 @@ document.getElementById('globalTableBody').addEventListener('click', function(e)
 });
 
 function toggleTableChart(code) {
+  const dataRow = document.querySelector(`.data-row[data-row-code="${code}"]`);
   if (expandedTableCharts.has(code)) {
     expandedTableCharts.delete(code);
     const row = document.getElementById(`chart-row-${code}`);
     if (row) row.style.display = 'none';
+    if (dataRow) dataRow.classList.remove('expanded');
     if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
   } else {
     expandedTableCharts.add(code);
     const row = document.getElementById(`chart-row-${code}`);
     if (row) { row.style.display = ''; renderTableInlineChart(code); }
+    if (dataRow) dataRow.classList.add('expanded');
   }
 }
 
@@ -2238,14 +2208,13 @@ function renderTableInlineChart(code) {
     return idx !== -1 ? fullWaveMarkers[idx] : null;
   });
 
-  _blockWheelScroll(canvas);
   tableChartInstances[code] = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels: data.map(d=>d.date),
       datasets: [
-        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:true, tension:0.2, yAxisID:'y' },
-        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:false, tension:0.2, yAxisID:'y1' }
+        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, fill:true, tension:0.2, yAxisID:'y' },
+        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, fill:false, tension:0.2, yAxisID:'y1' }
       ]
     },
     options: {
@@ -2253,22 +2222,9 @@ function renderTableInlineChart(code) {
       plugins: {
         legend:{display:false},
         tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 },
-        waveMarkers: filteredWaveMarkers,
-        zoom: {
-          pan: { enabled:true, mode:'x',
-            onPanStart({chart}){ _onGestureStart(chart); },
-            onPan(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); },
-            onPanComplete({chart}){ _onGestureEnd(chart); document.getElementById('reset-overlay-'+code)?.classList.add('visible'); }
-          },
-          zoom: { wheel:{enabled:true,speed:0.1}, pinch:{enabled:true}, mode:'x',
-            onZoomStart({chart}){ _onGestureStart(chart); },
-            onZoom(){ document.getElementById('reset-overlay-'+code)?.classList.add('visible'); },
-            onZoomComplete({chart}){ _onGestureEnd(chart); document.getElementById('reset-overlay-'+code)?.classList.add('visible'); }
-          },
-          limits: { x:{minRange:5} }
-        }
+        waveMarkers: filteredWaveMarkers
       },
-      interaction: { mode:'index', intersect:true },
+      interaction: { mode:'index', intersect:false },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
           maxTicksLimit: 5,
@@ -2380,37 +2336,38 @@ function renderGlobalTable() {
 
   const frag = document.createDocumentFragment();
   rows.forEach((r, i) => {
+    const isExp = expandedTableCharts.has(r.code);
     const tr = document.createElement('tr');
+    tr.className = 'data-row' + (isExp ? ' expanded' : '');
+    tr.dataset.rowCode = r.code;
     tr.innerHTML = `
-      <td class="center" style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${i+1}</td>
-      <td class="stock-name-cell" data-code="${r.code}" style="cursor:pointer">
-        <span class="stock-name-toggle">▶</span>
-        <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-right:6px">${r.code}</span>
-        <span style="color:var(--blue);font-weight:500">${r.name}</span>
+      <td class="center hide-mobile" data-label="#" style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${i+1}</td>
+      <td class="stock-name-cell" data-label="종목명" data-code="${r.code}" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="stock-name-toggle">▶</span>
+          <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;">${r.code}</span>
+          <span style="color:var(--blue);font-weight:600;font-size:14px">${r.name}</span>
+        </div>
       </td>
-      <td class="num" style="color:var(--text2)">${r.minAcc.toLocaleString()}</td>
-      <td class="num" style="font-weight:600">${r.maxAcc.toLocaleString()}</td>
-      <td class="num" style="color:var(--text2)">${r.startAccStr}</td>
-      <td class="num" style="color:var(--text2)">${r.endAccStr}</td>
-      <td class="num ${r.accClass}">${r.accStr}</td>
-      <td class="num" style="font-weight:600">${r.curStr}</td>
-      <td class="num ${r.dailyClass}">${r.dailyStr}</td>
-      <td class="center">
+      <td class="num" data-label="최소 계좌수" style="color:var(--text2)">${r.minAcc.toLocaleString()}</td>
+      <td class="num" data-label="최대 계좌수" style="font-weight:600">${r.maxAcc.toLocaleString()}</td>
+      <td class="num" data-label="${actualStart} 계좌수" style="color:var(--text2)">${r.startAccStr}</td>
+      <td class="num" data-label="${actualEnd} 계좌수" style="color:var(--text2)">${r.endAccStr}</td>
+      <td class="num ${r.accClass}" data-label="기간 매집(%)">${r.accStr}</td>
+      <td class="num" data-label="현 매집(%)" style="font-weight:600">${r.curStr}</td>
+      <td class="num ${r.dailyClass}" data-label="일 매집률">${r.dailyStr}</td>
+      <td class="center manage-cell" data-label="관리">
         <button class="btn btn-sm remove-stock-btn" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(248,81,73,.3)" data-code="${r.code}">삭제</button>
       </td>`;
     frag.appendChild(tr);
 
-    const isExp = expandedTableCharts.has(r.code);
     const chartTr = document.createElement('tr');
     chartTr.id = `chart-row-${r.code}`;
     chartTr.className = 'chart-row';
     chartTr.style.display = isExp ? '' : 'none';
     chartTr.innerHTML = `
-      <td colspan="10">
-        <div class="chart-row-inner" style="position:relative">
-          <div class="chart-reset-overlay" id="reset-overlay-${r.code}">
-            <button onclick="resetTableChart('${r.code}')">↺ 초기화</button>
-          </div>
+      <td colspan="10" class="chart-td">
+        <div class="chart-row-inner">
           <canvas id="table-chart-${r.code}"></canvas>
         </div>
       </td>`;
@@ -2419,165 +2376,6 @@ function renderGlobalTable() {
 
   tbody.appendChild(frag);
   expandedTableCharts.forEach(code => renderTableInlineChart(code));
-  renderMobileCards(rows, actualStart, actualEnd);
-}
-
-// ══════════════════════════════════════════════════════
-// 모바일 카드 렌더링
-// ══════════════════════════════════════════════════════
-const _mcCharts = {};
-
-function renderMobileCards(rows, actualStart, actualEnd) {
-  const el = document.getElementById('mobileCardList');
-  if (!el) return;
-  Object.values(_mcCharts).forEach(c => { try { c.destroy(); } catch(e){} });
-  for (const k in _mcCharts) delete _mcCharts[k];
-
-  if (!rows.length) {
-    el.innerHTML = '<p style="text-align:center;padding:32px;color:var(--text3);font-size:13px">종목을 추가하면 여기에 표시됩니다.</p>';
-    return;
-  }
-
-  el.innerHTML = rows.map((r, i) => {
-    const ac = r.accClass   === 'val-down' ? 'down' : 'up';
-    const dc = r.dailyClass === 'val-purple-down' ? 'pd' : 'pu';
-    return `<div class="mc" data-code="${r.code}">
-      <div class="mc-head">
-        <span class="mc-rank">${i+1}</span>
-        <div class="mc-name">
-          <div class="mc-name-text">${r.name}</div>
-          <div class="mc-code">${r.code}</div>
-        </div>
-        <button class="mc-del" data-del="${r.code}">삭제</button>
-        <span class="mc-arrow">▶</span>
-      </div>
-      <div class="mc-nums">
-        <div class="mc-num">
-          <div class="mc-num-label">기간 매집</div>
-          <div class="mc-num-val ${ac}">${r.accStr}%</div>
-        </div>
-        <div class="mc-num">
-          <div class="mc-num-label">현 매집</div>
-          <div class="mc-num-val up">${r.curStr}%</div>
-        </div>
-        <div class="mc-num">
-          <div class="mc-num-label">일 매집률</div>
-          <div class="mc-num-val ${dc}">${r.dailyStr}%</div>
-        </div>
-      </div>
-      <div class="mc-detail">
-        <div class="mc-di"><span class="mc-di-label">최소 계좌수</span><span class="mc-di-val">${r.minAcc.toLocaleString()}</span></div>
-        <div class="mc-di"><span class="mc-di-label">최대 계좌수</span><span class="mc-di-val">${r.maxAcc.toLocaleString()}</span></div>
-        <div class="mc-di"><span class="mc-di-label">${actualStart} 계좌수</span><span class="mc-di-val">${r.startAccStr}</span></div>
-        <div class="mc-di"><span class="mc-di-label">${actualEnd} 계좌수</span><span class="mc-di-val">${r.endAccStr}</span></div>
-      </div>
-      <div class="mc-chart">
-        <div class="mc-chart-inner" style="position:relative">
-          <div class="chart-reset-overlay" id="mc-reset-overlay-${r.code}">
-            <button onclick="resetMcChart('${r.code}')">↺ 초기화</button>
-          </div>
-          <canvas id="mcc-${r.code}"></canvas>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // 이벤트 위임: 헤더 클릭(펼침) + 삭제 버튼
-  el.onclick = function(e) {
-    const delBtn = e.target.closest('[data-del]');
-    if (delBtn) {
-      const code = delBtn.dataset.del;
-      tableSelectedStocks.delete(code);
-      expandedTableCharts.delete(code);
-      if (_mcCharts[code]) { try { _mcCharts[code].destroy(); } catch(e){} delete _mcCharts[code]; }
-      renderGlobalTable(); saveLocalStocks();
-      return;
-    }
-    const head = e.target.closest('.mc-head');
-    if (head) {
-      const card = head.closest('.mc');
-      const code = card.dataset.code;
-      card.classList.toggle('open');
-      if (card.classList.contains('open')) {
-        expandedTableCharts.add(code);
-        _renderMcChart(code);
-      } else {
-        expandedTableCharts.delete(code);
-        if (_mcCharts[code]) { try { _mcCharts[code].destroy(); } catch(e){} delete _mcCharts[code]; }
-      }
-    }
-  };
-
-  // 이미 펼쳐진 카드 복원
-  expandedTableCharts.forEach(code => {
-    const card = el.querySelector(`.mc[data-code="${code}"]`);
-    if (card) { card.classList.add('open'); _renderMcChart(code); }
-  });
-}
-
-function _renderMcChart(code) {
-  const canvas = document.getElementById('mcc-' + code);
-  if (!canvas) return;
-  if (_mcCharts[code]) { try { _mcCharts[code].destroy(); } catch(e){} }
-
-  const start = document.getElementById('globalStartDate').value;
-  const end   = document.getElementById('globalEndDate').value;
-  let data = allParsedData.filter(d => d.code === code && d.date >= start && d.date <= end);
-  data.sort((a,b) => new Date(a.date) - new Date(b.date));
-  if (!data.length) return;
-
-  const prices = data.map(d => d.price);
-  const minP = Math.min(...prices), maxP = Math.max(...prices);
-  const pad  = (maxP - minP) === 0 ? minP * .1 : (maxP - minP) * .5;
-
-  // PC 인라인 차트와 동일하게: 전체 데이터로 파동 계산 후 현재 뷰에 맞게 필터링
-  const fullData = allParsedData.filter(d => d.code === code);
-  fullData.sort((a,b) => new Date(a.date)-new Date(b.date));
-  const fullWaveMarkers = calculateWaves(fullData);
-  const waveMarkers = data.map(d => {
-    const idx = fullData.findIndex(fd => fd.date === d.date);
-    return idx !== -1 ? fullWaveMarkers[idx] : null;
-  });
-
-  _blockWheelScroll(canvas);
-  _mcCharts[code] = new Chart(canvas.getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: data.map(d => d.date),
-      datasets: [
-        { label:'현재가',    data: prices,               borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:true,  tension:0.2, yAxisID:'y'  },
-        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, fill:false, tension:0.2, yAxisID:'y1' }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false, animation:{duration:200},
-      plugins: { legend:{display:false}, tooltip:{backgroundColor:'#232220',borderColor:'#3d3b37',borderWidth:1}, waveMarkers,
-        zoom: {
-          pan: { enabled:true, mode:'x',
-            onPanStart({chart}){ _onGestureStart(chart); },
-            onPan(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); },
-            onPanComplete({chart}){ _onGestureEnd(chart); document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); }
-          },
-          zoom: { wheel:{enabled:true,speed:0.1}, pinch:{enabled:true}, mode:'x',
-            onZoomStart({chart}){ _onGestureStart(chart); },
-            onZoom(){ document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); },
-            onZoomComplete({chart}){ _onGestureEnd(chart); document.getElementById('mc-reset-overlay-'+code)?.classList.add('visible'); }
-          },
-          limits: { x:{minRange:5} }
-        }
-      },
-      interaction: { mode:'index', intersect:true },
-      scales: {
-        x: { grid:{color:'#2e2c29'}, ticks:{
-          maxTicksLimit:4, minRotation:30, maxRotation:45, autoSkip:true, font:{size:9},
-          callback(v){ const l=this.getLabelForValue(v); if(!l) return ''; const p=l.split('-'); return p.length===3?p[1]+'/'+p[2]:l; }
-        }},
-        y:  { position:'left',  grid:{color:'#2e2c29'}, suggestedMin:Math.max(0,minP-pad), suggestedMax:maxP+pad, ticks:{font:{size:9}, callback:v=>v>=10000?(v/10000).toFixed(0)+'만':v.toLocaleString()} },
-        y1: { position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:9}, callback:v=>v>=10000?(v/10000).toFixed(0)+'만':v.toLocaleString()} }
-      }
-    },
-    plugins: [waveDrawerPlugin]
-  });
 }
 </script>
 </body>
