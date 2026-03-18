@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주식 데이터 시각화 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- 줌 기능을 위한 외부 라이브러리 필수 추가 -->
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://apis.google.com/js/api.js" async></script>
@@ -875,9 +878,10 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="chart-wrap-outer">
     <div class="chart-title-bar">
       <span class="chart-title-text" id="combinedChartTitle">종목 추이 종합</span>
-      <div style="display:flex;gap:14px;font-size:11px;color:var(--text2)">
+      <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);align-items:center;">
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#e8a020;display:inline-block;border-radius:2px"></span>현재가</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#38bdf8;display:inline-block;border-radius:2px"></span>보유계좌수</span>
+        <button id="resetZoomBtn" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:10px;display:none;">초기화</button>
       </div>
     </div>
     <div class="chart-inner">
@@ -1828,6 +1832,14 @@ document.getElementById('endDateInput').addEventListener('change', autoSearch);
 document.getElementById('searchBtn').addEventListener('click', searchAndRender);
 document.getElementById('exportBtn').addEventListener('click', exportToCSV);
 
+// 확대 축소 초기화 버튼 이벤트 바인딩
+document.getElementById('resetZoomBtn').addEventListener('click', () => {
+  if (combinedChartInstance) {
+    combinedChartInstance.resetZoom();
+    document.getElementById('resetZoomBtn').style.display = 'none';
+  }
+});
+
 function autoSearch() {
   const input = document.getElementById('searchInput');
   const code = input.dataset.selectedCode || input.value.trim();
@@ -1892,12 +1904,12 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         {
           label: '현재가 (원)', data: priceData,
           backgroundColor: 'rgba(232,160,32,0.12)', borderColor: '#e8a020',
-          borderWidth: 2, pointRadius: 0, fill: true, tension: 0.2, yAxisID: 'y'
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, pointHoverRadius: 4, fill: true, tension: 0.2, yAxisID: 'y'
         },
         {
           label: '보유계좌수 (계좌)', data: accountsData,
           backgroundColor: 'rgba(56,189,248,0.08)', borderColor: '#38bdf8',
-          borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2, yAxisID: 'y1'
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, pointHoverRadius: 4, fill: false, tension: 0.2, yAxisID: 'y1'
         }
       ]
     },
@@ -1905,6 +1917,19 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         waveMarkers: waveMarkers,
+        zoom: {
+          pan: { 
+            enabled: true, 
+            mode: 'x',
+            onPan: function() { document.getElementById('resetZoomBtn').style.display = 'inline-flex'; }
+          },
+          zoom: {
+            wheel: { enabled: true },
+            pinch: { enabled: true },
+            mode: 'x',
+            onZoom: function() { document.getElementById('resetZoomBtn').style.display = 'inline-flex'; }
+          }
+        },
         tooltip: {
           backgroundColor: '#232220',
           borderColor: '#3d3b37', borderWidth: 1,
@@ -1919,6 +1944,8 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         },
         legend: { display: false }
       },
+      // 5px 이내에서만 작동하도록 교차(intersect) 규칙 강제 적용
+      interaction: { mode: 'nearest', intersect: true, axis: 'xy' },
       onClick(event, elements, chart) {
         if (!elements.length) return;
         const date = chart.data.labels[elements[0].index];
@@ -1938,7 +1965,6 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
           searchAndRender();
         }
       },
-      interaction: { mode: 'index', intersect: false },
       scales: {
         x: { 
           grid: { color: '#2e2c29' }, 
@@ -2213,8 +2239,8 @@ function renderTableInlineChart(code) {
     data: {
       labels: data.map(d=>d.date),
       datasets: [
-        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, fill:true, tension:0.2, yAxisID:'y' },
-        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, fill:false, tension:0.2, yAxisID:'y1' }
+        { label:'현재가', data: priceData, borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,0.1)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, pointHoverRadius:4, fill:true, tension:0.2, yAxisID:'y' },
+        { label:'보유계좌수', data: data.map(d=>d.accounts), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', borderWidth:1.5, pointRadius:0, pointHitRadius:5, pointHoverRadius:4, fill:false, tension:0.2, yAxisID:'y1' }
       ]
     },
     options: {
@@ -2224,7 +2250,8 @@ function renderTableInlineChart(code) {
         tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 },
         waveMarkers: filteredWaveMarkers
       },
-      interaction: { mode:'index', intersect:false },
+      // 5px 이내에서만 작동하도록 교차(intersect) 규칙 강제 적용
+      interaction: { mode:'nearest', intersect:true, axis:'xy' },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
           maxTicksLimit: 5,
