@@ -57,7 +57,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  height: 100%;
+  /* height: 100% 안티패턴 제거. 모바일 스크롤 확보를 위해 min-height 사용 */
+  min-height: 100vh;
   font-family: 'Noto Sans KR', sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -400,7 +401,7 @@ input[type="number"] { width: 72px; text-align: center; }
 .wave-item-date { font-size: 11px; color: var(--text2); }
 .wave-item-price { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; }
 
-/* ── 탭 2: 테이블 뷰 ─────────────────────────── */
+/* ── 탭 2: 종목 비교 테이블 ─────────────────────────── */
 .table-controls {
   display: flex;
   flex-wrap: wrap;
@@ -1935,6 +1936,8 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
           borderColor: '#3d3b37', borderWidth: 1,
           titleColor: '#9d9a93', bodyColor: '#f0ece4',
           padding: 10,
+          intersect: true,
+          mode: 'point',
           callbacks: {
             label: ctx => {
               const v = ctx.parsed.y;
@@ -1945,7 +1948,7 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         legend: { display: false }
       },
       // 5px 이내에서만 작동하도록 교차(intersect) 규칙 강제 적용
-      interaction: { mode: 'nearest', intersect: true, axis: 'xy' },
+      interaction: { mode: 'point', intersect: true },
       onClick(event, elements, chart) {
         if (!elements.length) return;
         const date = chart.data.labels[elements[0].index];
@@ -2247,11 +2250,15 @@ function renderTableInlineChart(code) {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
         legend:{display:false},
-        tooltip:{ backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1 },
+        tooltip: {
+          backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1,
+          intersect: true,
+          mode: 'point'
+        },
         waveMarkers: filteredWaveMarkers
       },
       // 5px 이내에서만 작동하도록 교차(intersect) 규칙 강제 적용
-      interaction: { mode:'nearest', intersect:true, axis:'xy' },
+      interaction: { mode: 'point', intersect: true },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
           maxTicksLimit: 5,
