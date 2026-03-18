@@ -1936,8 +1936,6 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
           borderColor: '#3d3b37', borderWidth: 1,
           titleColor: '#9d9a93', bodyColor: '#f0ece4',
           padding: 10,
-          intersect: true,
-          mode: 'point',
           callbacks: {
             label: ctx => {
               const v = ctx.parsed.y;
@@ -1947,8 +1945,8 @@ function renderMainChart(labels, accountsData, priceData, waveMarkers) {
         },
         legend: { display: false }
       },
-      // 5px 이내에서만 작동하도록 교차(intersect) 규칙 강제 적용
-      interaction: { mode: 'point', intersect: true },
+      // 5px 이내에서만 작동하며 중복 출력을 방지하는 index 모드 강제
+      interaction: { mode: 'index', intersect: true },
       onClick(event, elements, chart) {
         if (!elements.length) return;
         const date = chart.data.labels[elements[0].index];
@@ -2251,14 +2249,12 @@ function renderTableInlineChart(code) {
       plugins: {
         legend:{display:false},
         tooltip: {
-          backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1,
-          intersect: true,
-          mode: 'point'
+          backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1
         },
         waveMarkers: filteredWaveMarkers
       },
-      // 5px 이내에서만 작동하도록 교차(intersect) 규칙 강제 적용
-      interaction: { mode: 'point', intersect: true },
+      // 5px 이내에서만 작동하며 중복 출력을 방지하는 index 모드 강제
+      interaction: { mode: 'index', intersect: true },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
           maxTicksLimit: 5,
