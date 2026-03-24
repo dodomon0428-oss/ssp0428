@@ -514,6 +514,10 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 .chart-row { background: var(--bg3); }
 .chart-row td { padding: 16px; }
 .chart-row-inner { height: 260px; position: relative; }
+.chart-reset-overlay { position:absolute; top:6px; right:6px; z-index:10; display:none; }
+.chart-reset-overlay.visible { display:block; }
+.chart-reset-overlay button { padding:3px 9px; font-size:10px; background:var(--bg3); color:var(--text2); border:1px solid var(--border2); border-radius:4px; cursor:pointer; font-family:inherit; }
+.chart-reset-overlay button:hover { color:var(--blue); border-color:var(--blue); }
 
 /* 스켈레톤 */
 .empty-row td {
@@ -879,6 +883,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="chart-wrap-outer">
     <div class="chart-title-bar">
       <span class="chart-title-text" id="combinedChartTitle">종목 추이 종합</span>
+      <span id="hlBadge" style="display:none;font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(46,204,142,0.15);color:#2ecc8e;border:1px solid rgba(46,204,142,0.3);margin-left:6px;">📊 고저가 적용중</span>
       <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);align-items:center;">
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#e8a020;display:inline-block;border-radius:2px"></span>현재가</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#38bdf8;display:inline-block;border-radius:2px"></span>보유계좌수</span>
@@ -999,6 +1004,23 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 <!-- ── JavaScript ─────────────────────────────────── -->
 <script>
 // ══════════════════════════════════════════════════════
+// CSV 파싱 헬퍼: 헤더에서 high/low 인덱스 동적 감지
+// ══════════════════════════════════════════════════════
+function detectHLIndex(headerRow) {
+  const h = headerRow.map(c => (c||'').toString().trim().toLowerCase());
+  const hiIdx = h.findIndex(c => c === 'high' || c === '고가' || c === '최고가');
+  const loIdx = h.findIndex(c => c === 'low'  || c === '저가' || c === '최저가');
+  return { hiIdx, loIdx };
+}
+function parseHL(row, hiIdx, loIdx) {
+  const parseN = (v) => { const n = parseInt((v||'0').toString().replace(/,/g,''),10); return isNaN(n)||n===0 ? null : n; };
+  return {
+    high: hiIdx >= 0 && row.length > hiIdx ? parseN(row[hiIdx]) : null,
+    low:  loIdx >= 0 && row.length > loIdx ? parseN(row[loIdx]) : null,
+  };
+}
+
+// ══════════════════════════════════════════════════════
 // 전역 상태
 // ══════════════════════════════════════════════════════
 let combinedChartInstance = null;
@@ -1027,20 +1049,31 @@ const waveDrawerPlugin = {
     if(!markers) return;
     const ctx = chart.ctx;
     const meta = chart.getDatasetMeta(0);
+    const yScale = chart.scales['y'];
     ctx.save();
     ctx.font = 'bold 11px "Noto Sans KR"';
     ctx.textAlign = 'center';
     for(let i=0; i<markers.length; i++) {
-      if(markers[i]) {
-        const x = meta.data[i].x;
-        const y = meta.data[i].y;
-        const isComplete = markers[i].includes('완료');
-        ctx.fillStyle = isComplete ? '#f05c5c' : '#2ecc8e'; // 적색(완료), 녹색(시작)
-        ctx.fillText(markers[i], x, y - 12);
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, 2 * Math.PI);
-        ctx.fill();
+      if(!markers[i]) continue;
+      const m = markers[i];
+      const x = meta.data[i].x;
+      const isComplete = m.text.includes('완료');
+      // 시작: 저가 y좌표 (아래), 완료: 고가 y좌표 (위)
+      let y;
+      if (yScale && m.yValue != null) {
+        y = yScale.getPixelForValue(m.yValue);
+      } else {
+        y = meta.data[i].y;
       }
+      const color = isComplete ? '#f05c5c' : '#2ecc8e';
+      ctx.fillStyle = color;
+      // 점
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      // 라벨 (시작=아래, 완료=위)
+      const labelY = isComplete ? y - 12 : y + 18;
+      ctx.fillText(m.text, x, labelY);
     }
     ctx.restore();
   }
@@ -1508,18 +1541,22 @@ async function pickerCallback(data) {
     allParsedData = [];
     Papa.parse(text, {
       skipEmptyLines: true,
+      header: true,
       complete(r) {
-        const rows = r.data;
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (row.length < 5) continue;
-          const code     = row[0] ? row[0].replace(/'/g,'').trim() : '';
-          const name     = row[1] ? row[1].trim() : '알수없음';
-          const price    = parseInt((row[2]||'0').toString().replace(/,/g,''), 10);
-          const accounts = parseInt((row[3]||'0').toString().replace(/,/g,''), 10);
-          const dateStr  = (row[4]||'').trim().split(/[\sT]/)[0];
+        for (const row of r.data) {
+          const code     = row['종목코드'] ? String(row['종목코드']).replace(/'/g,'').trim() : '';
+          const name     = (row['종목명']||'알수없음').trim();
+          const price    = parseInt(String(row['현재가']||'0').replace(/,/g,''), 10);
+          const accounts = parseInt(String(row['보유계좌수']||'0').replace(/,/g,''), 10);
+          const dateStr  = String(row['날짜']||'').trim().split(/[\sT]/)[0];
           if (isNaN(price) || isNaN(accounts) || !code || !dateStr) continue;
-          allParsedData.push({ code, name, price, accounts, date: dateStr });
+          const rawHigh = row['high'] ?? row['High'] ?? row['HIGH'] ?? row['고가'] ?? row['최고가'];
+          const rawLow  = row['low']  ?? row['Low']  ?? row['LOW']  ?? row['저가'] ?? row['최저가'];
+          const high = rawHigh != null && rawHigh !== '' ? parseInt(String(rawHigh).replace(/,/g,''), 10) : null;
+          const low  = rawLow  != null && rawLow  !== '' ? parseInt(String(rawLow ).replace(/,/g,''), 10) : null;
+          allParsedData.push({ code, name, price, accounts, date: dateStr,
+            high: isNaN(high)||high===0 ? null : high,
+            low:  isNaN(low) ||low===0  ? null : low  });
         }
         updateOverlayProgress(allParsedData.length, 100);
         if (allParsedData.length === 0) {
@@ -1559,20 +1596,26 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
 
   let rowCount = 0;
   const estimatedRows = Math.max(1, Math.round(file.size / 60));
-
   Papa.parse(file, {
     skipEmptyLines: true,
     encoding: "UTF-8",
+    header: true,   // PapaParse가 직접 헤더 파싱 → row는 {종목코드:..., high:..., low:...} 객체
     chunk(results) {
       for (const row of results.data) {
-        if (row.length < 5) continue;
-        const code     = row[0] ? row[0].replace(/'/g,'').trim() : "";
-        const name     = row[1] ? row[1].trim() : "알수없음";
-        const price    = parseInt((row[2]||"0").toString().replace(/,/g,''), 10);
-        const accounts = parseInt((row[3]||"0").toString().replace(/,/g,''), 10);
-        const dateStr  = (row[4]||"").trim().split(/[\sT]/)[0];
+        const code     = row['종목코드'] ? String(row['종목코드']).replace(/'/g,'').trim() : "";
+        const name     = (row['종목명']||'알수없음').trim();
+        const price    = parseInt(String(row['현재가']||'0').replace(/,/g,''), 10);
+        const accounts = parseInt(String(row['보유계좌수']||'0').replace(/,/g,''), 10);
+        const dateStr  = String(row['날짜']||'').trim().split(/[\sT]/)[0];
         if (isNaN(price) || isNaN(accounts) || !code || !dateStr) continue;
-        allParsedData.push({ code, name, price, accounts, date: dateStr });
+        // 고가/저가: 컬럼명 대소문자 모두 대응
+        const rawHigh = row['high'] ?? row['High'] ?? row['HIGH'] ?? row['고가'] ?? row['최고가'];
+        const rawLow  = row['low']  ?? row['Low']  ?? row['LOW']  ?? row['저가'] ?? row['최저가'];
+        const high = rawHigh != null && rawHigh !== '' ? parseInt(String(rawHigh).replace(/,/g,''), 10) : null;
+        const low  = rawLow  != null && rawLow  !== '' ? parseInt(String(rawLow ).replace(/,/g,''), 10) : null;
+        allParsedData.push({ code, name, price, accounts, date: dateStr,
+          high: isNaN(high)||high===0 ? null : high,
+          low:  isNaN(low) ||low===0  ? null : low  });
         rowCount++;
       }
       const pct = Math.min(95, (rowCount / estimatedRows) * 100);
@@ -1606,87 +1649,139 @@ function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 // ══════════════════════════════════════════════════════
 // 파동 탐색 알고리즘 (순방향/소급 탐색으로 전면 수정)
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// 줌/패닝 공통 유틸
+// ══════════════════════════════════════════════════════
+
+// PC: 차트 캔버스 마우스 휠로 페이지 스크롤 방지
+function _blockWheelScroll(canvas) {
+  canvas.addEventListener('wheel', e => { e.preventDefault(); }, { passive: false });
+}
+
+// 터치 기기 여부 감지
+function _isTouchDevice() { return window.matchMedia('(hover:none)').matches; }
+
+// 터치 제스처 중 툴팁 차단 (오버레이 방식)
+function _onGestureStart(chart) {
+  if (!_isTouchDevice()) return;
+  if (!chart?.canvas) return;
+  const canvas = chart.canvas;
+  let ov = canvas._tooltipBlocker;
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.style.cssText = 'position:absolute;inset:0;z-index:99;touch-action:pinch-zoom pan-x;';
+    canvas.parentElement.style.position = 'relative';
+    canvas.parentElement.appendChild(ov);
+    canvas._tooltipBlocker = ov;
+  }
+  ov.style.display = 'block';
+}
+function _onGestureEnd(chart) {
+  if (!chart?.canvas) return;
+  const ov = chart.canvas._tooltipBlocker;
+  setTimeout(() => { if (ov) ov.style.display = 'none'; }, 250);
+}
+
+// 인라인 차트 개별 리셋 버튼 표시/숨김
+function _showInlineResetBtn(code) {
+  document.getElementById('reset-overlay-' + code)?.classList.add('visible');
+}
+
+// 인라인 차트 zoom 옵션 생성 (code별 리셋 버튼 연동)
+function _makeZoomOptions(code) {
+  return {
+    pan: {
+      enabled: true, mode: 'x',
+      onPanStart({ chart }) { _onGestureStart(chart); },
+      onPan()               { _showInlineResetBtn(code); },
+      onPanComplete({ chart }) { _showInlineResetBtn(code); _onGestureEnd(chart); }
+    },
+    zoom: {
+      wheel:  { enabled: true, speed: 0.1 },
+      pinch:  { enabled: true },
+      mode:   'x',
+      onZoomStart({ chart, event }) {
+        if (event?.cancelable) event.preventDefault();
+        _onGestureStart(chart);
+      },
+      onZoom()                { _showInlineResetBtn(code); },
+      onZoomComplete({ chart }) { _showInlineResetBtn(code); _onGestureEnd(chart); }
+    },
+    limits: { x: { minRange: 5 } }
+  };
+}
+
+function resetTableChart(code) {
+  if (tableChartInstances[code]) tableChartInstances[code].resetZoom();
+  document.getElementById('reset-overlay-' + code)?.classList.remove('visible');
+}
+
 function calculateWaves(data) {
+  // 마커: { text, yValue } 객체로 반환
+  // yValue: 시작=저가(low), 완료=고가(high) → 차트에서 정확한 위치에 표시
   let markers = new Array(data.length).fill(null);
   if (data.length === 0) return markers;
 
+  const hasHL = data.some(d => d.low != null && d.high != null);
+  const getLow  = d => (hasHL && d.low  != null) ? d.low  : d.price;
+  const getHigh = d => (hasHL && d.high != null) ? d.high : d.price;
+
+  const setMarker = (idx, text, yValue) => {
+    if (markers[idx]) {
+      markers[idx] = { text: markers[idx].text + ' / ' + text, yValue };
+    } else {
+      markers[idx] = { text, yValue };
+    }
+  };
+
   let currentWave = 1;
   let state = 'SEEK_FIRST_TARGET';
-  
-  // 첫 날짜의 가격을 최초의 최저점 후보로 설정
-  let candMin = data[0].price;
+  let candMin = getLow(data[0]);
   let candMinIdx = 0;
   let currentStartPrice = candMin;
 
   for (let i = 1; i < data.length; i++) {
-    let p = data[i].price;
+    const lo = getLow(data[i]);
+    const hi = getHigh(data[i]);
 
     if (state === 'SEEK_FIRST_TARGET') {
-      if (p <= candMin) {
-        // 아직 파동 시작점(2배 도달)을 찾지 못한 상태에서 가격이 더 떨어지면 후보를 갱신
-        candMin = p;
-        candMinIdx = i;
-      } else if (p >= candMin * 2) {
-        // 드디어 현재 최저점 대비 2배의 가격 달성! 첫 번째 파동으로 인정
-        markers[candMinIdx] = "파동시작";
+      if (lo <= candMin) {
+        candMin = lo; candMinIdx = i;
+      } else if (hi >= candMin * 2) {
+        setMarker(candMinIdx, "파동시작", candMin);  // 저가 위치
         currentStartPrice = candMin;
-        markers[i] = "1차완료";
-
+        setMarker(i, "1차완료", hi);                 // 고가 위치
         state = 'SEEK_DIP';
-        candMin = p;
-        candMinIdx = i;
+        candMin = lo; candMinIdx = i;
       }
     } else if (state === 'SEEK_DIP') {
-      if (p <= candMin) {
-        candMin = p;
-        candMinIdx = i;
+      if (lo <= candMin) {
+        candMin = lo; candMinIdx = i;
       }
-
-      if (p >= candMin * 2) {
-        // 다음 파동 발견
+      if (hi >= candMin * 2) {
         if (candMin < currentStartPrice) {
-          // 직전 시작가보다 이번 바닥이 더 깊으면 1차부터 리셋
           currentWave = 1;
-          let txt = "파동시작";
-          if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
-          else markers[candMinIdx] = txt;
+          setMarker(candMinIdx, "파동시작", candMin);  // 저가 위치
         } else {
           currentWave++;
-          let txt = currentWave + "차시작";
-          if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
-          else markers[candMinIdx] = txt;
+          setMarker(candMinIdx, currentWave + "차시작", candMin);  // 저가 위치
         }
-
         currentStartPrice = candMin;
-
-        if (markers[i]) markers[i] += " / " + currentWave + "차완료";
-        else markers[i] = currentWave + "차완료";
-
+        setMarker(i, currentWave + "차완료", hi);    // 고가 위치
         state = 'SEEK_DIP';
-        candMin = p;
-        candMinIdx = i;
+        candMin = lo; candMinIdx = i;
       }
     }
   }
 
-  // 차트 끝에 도달했을 때 진행 중인 마커 처리
+  // 차트 끝 - 진행 중인 마커 처리
   if (state === 'SEEK_FIRST_TARGET') {
-     // 단 한 번도 1차 파동을 완성하지 못했으면, 역대 최저점을 파동시작으로 표시
-     markers[candMinIdx] = "파동시작";
+    setMarker(candMinIdx, "파동시작", candMin);
   } else if (state === 'SEEK_DIP' && candMinIdx !== -1) {
-     if (candMin < currentStartPrice) {
-       let txt = "파동시작";
-       if (!markers[candMinIdx] || !markers[candMinIdx].includes(txt)) {
-         if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
-         else markers[candMinIdx] = txt;
-       }
-     } else {
-       let txt = (currentWave + 1) + "차시작";
-       if (!markers[candMinIdx] || !markers[candMinIdx].includes(txt)) {
-         if (markers[candMinIdx]) markers[candMinIdx] += " / " + txt;
-         else markers[candMinIdx] = txt;
-       }
-     }
+    const txt = candMin < currentStartPrice ? "파동시작" : (currentWave + 1) + "차시작";
+    if (!markers[candMinIdx] || !markers[candMinIdx].text.includes(txt)) {
+      setMarker(candMinIdx, txt, candMin);
+    }
   }
 
   return markers;
@@ -1705,18 +1800,23 @@ function updateWaveInfoUI(markers, data) {
   for (let i = 0; i < markers.length; i++) {
     if (markers[i]) {
       hasWaves = true;
-      const markerTexts = markers[i].split(' / ');
-      
+      const m = markers[i]; // {text, yValue}
+      const markerTexts = m.text.split(' / ');
+
       markerTexts.forEach(txt => {
         const isComplete = txt.includes('완료');
         const borderClass = isComplete ? 'complete' : 'start';
+        // 표시 가격: 완료=고가, 시작=저가 (없으면 종가)
+        const displayPrice = isComplete
+          ? (data[i].high  || data[i].price)
+          : (data[i].low   || data[i].price);
         html += `
           <div class="wave-item ${borderClass}">
             <div>
               <div class="wave-item-title">${txt}</div>
               <div class="wave-item-date">${data[i].date}</div>
             </div>
-            <div class="wave-item-price">${data[i].price.toLocaleString()}원</div>
+            <div class="wave-item-price">${displayPrice.toLocaleString()}원</div>
           </div>`;
       });
     }
@@ -1872,9 +1972,13 @@ function searchAndRender() {
   if (!data.length) { document.getElementById('exportBtn').style.display='none'; return showMsg("선택 기간 내 데이터가 없습니다.", true); }
 
   currentFilteredData = data;
-  document.getElementById('exportBtn').style.display = '';
+  document.getElementById('exportBtn').style.display = 'inline-flex';
   const recentName = stockIndex.get(code)?.recentName || data.at(-1).name;
   document.getElementById('combinedChartTitle').textContent = `[${recentName}] 현재가 및 보유계좌수 추이`;
+  // 고저가 데이터 감지 뱃지
+  const _hasHL = data.some(d => d.low != null && d.high != null);
+  const _hlBadge = document.getElementById('hlBadge');
+  if (_hlBadge) _hlBadge.style.display = _hasHL ? '' : 'none';
   
   // 4. 필터링된 데이터 영역 안에 사전 계산해둔 진짜 파동이 존재하는지 매핑하여 추출
   const filteredWaveMarkers = currentFilteredData.map(d => {
@@ -1890,8 +1994,20 @@ function searchAndRender() {
 }
 
 function renderMainChart(labels, accountsData, priceData, waveMarkers) {
-  const ctx = document.getElementById('combinedChart').getContext('2d');
-  if (combinedChartInstance) combinedChartInstance.destroy();
+  // 캔버스에 남아있는 모든 Chart 인스턴스 완전 제거 (GitHub Pages 환경에서 누적 방지)
+  const canvasEl = document.getElementById('combinedChart');
+  const existingChart = Chart.getChart(canvasEl);
+  if (existingChart) existingChart.destroy();
+  if (combinedChartInstance) { combinedChartInstance.destroy(); combinedChartInstance = null; }
+
+  // 캔버스 자체를 교체해서 잔여 상태 완전 초기화
+  const parent = canvasEl.parentElement;
+  canvasEl.remove();
+  const newCanvas = document.createElement('canvas');
+  newCanvas.id = 'combinedChart';
+  parent.appendChild(newCanvas);
+  _blockWheelScroll(newCanvas);
+  const ctx = newCanvas.getContext('2d');
 
   const minP = Math.min(...priceData), maxP = Math.max(...priceData);
   const range = maxP - minP;
@@ -2220,9 +2336,18 @@ function renderTableInlineChart(code) {
   let data = fullData.filter(d => d.date >= s && d.date <= e);
   if (!data.length) return;
 
-  const canvas = document.getElementById(`table-chart-${code}`);
+  let canvas = document.getElementById(`table-chart-${code}`);
   if (!canvas) return;
-  if (tableChartInstances[code]) { tableChartInstances[code].destroy(); }
+  const existingInline = Chart.getChart(canvas);
+  if (existingInline) existingInline.destroy();
+  if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
+  // 캔버스 교체
+  const inlineParent = canvas.parentElement;
+  canvas.remove();
+  canvas = document.createElement('canvas');
+  canvas.id = `table-chart-${code}`;
+  inlineParent.appendChild(canvas);
+  _blockWheelScroll(canvas);
 
   const priceData = data.map(d=>d.price);
   const minP = Math.min(...priceData), maxP = Math.max(...priceData);
@@ -2251,9 +2376,9 @@ function renderTableInlineChart(code) {
         tooltip: {
           backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1
         },
-        waveMarkers: filteredWaveMarkers
+        waveMarkers: filteredWaveMarkers,
+        zoom: _makeZoomOptions(code)
       },
-      // 5px 이내에서만 작동하며 중복 출력을 방지하는 index 모드 강제
       interaction: { mode: 'index', intersect: true },
       scales: {
         x: { grid:{color:'#2e2c29'}, ticks:{
@@ -2398,6 +2523,9 @@ function renderGlobalTable() {
     chartTr.innerHTML = `
       <td colspan="10" class="chart-td">
         <div class="chart-row-inner">
+          <div class="chart-reset-overlay" id="reset-overlay-${r.code}">
+            <button onclick="resetTableChart('${r.code}')">↺ 초기화</button>
+          </div>
           <canvas id="table-chart-${r.code}"></canvas>
         </div>
       </td>`;
