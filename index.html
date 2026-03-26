@@ -2239,6 +2239,9 @@ function renderMainChart(data, accountsData, waveMarkers) {
     fill: !hasOHLC, tension: 0.2, yAxisID: 'y'
   };
 
+  // ★ new Chart() 이전에 반드시 설정 (첫 렌더링 시 플러그인이 바로 읽어야 함)
+  _globalCandleData = hasOHLC ? candleData : null;
+
   combinedChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
@@ -2366,7 +2369,6 @@ function renderMainChart(data, accountsData, waveMarkers) {
     plugins: [candlestickPlugin, waveDrawerPlugin]
   });
   
-  _globalCandleData = hasOHLC ? candleData : null;
 }
 
 
