@@ -2214,7 +2214,8 @@ function renderMainChart(data, accountsData, waveMarkers) {
   const priceData = data.map(d => d.price);
   
   // OHLC 데이터 유무 검사 (일부만 있어도 봉차트 모드로 진입)
-  const hasOHLC  = data.some(d => d.open != null && d.high != null && d.low != null);
+  // open 없어도 high+low만 있으면 봉차트 (open은 price로 대체)
+  const hasOHLC  = data.some(d => d.high != null && d.low != null);
 
   const minP = Math.min(...priceData), maxP = Math.max(...priceData);
   const range = maxP - minP;
