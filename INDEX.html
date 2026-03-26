@@ -1,0 +1,2831 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주식 데이터 시각화 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://apis.google.com/js/api.js" async></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  /* ── 배경 계층: 따뜻한 짙은 차콜 ── */
+  --bg:        #111110;
+  --bg2:       #1a1917;
+  --bg3:       #232220;
+
+  /* ── 테두리 ── */
+  --border:    #2e2c29;
+  --border2:   #3d3b37;
+
+  /* ── 텍스트: 크림 화이트 계열 ── */
+  --text:      #f0ece4;
+  --text2:     #9d9a93;
+  --text3:     #55534e;
+
+  /* ── 주요 강조색: 앰버 골드 ── */
+  --blue:      #e8a020;
+  --blue-dim:  rgba(232,160,32,0.12);
+  --blue-glow: rgba(232,160,32,0.22);
+
+  /* ── 상승: 에메랄드 그린 ── */
+  --green:     #2ecc8e;
+  --green-dim: rgba(46,204,142,0.12);
+
+  /* ── 하락: 코랄 레드 ── */
+  --red:       #f05c5c;
+  --red-dim:   rgba(240,92,92,0.12);
+
+  /* ── 일 매집률: 스카이 시안 ── */
+  --purple:    #38bdf8;
+  --purple-dim:rgba(56,189,248,0.12);
+
+  --amber:     #e8a020;
+  --amber-dim: rgba(232,160,32,0.12);
+
+  --radius:    8px;
+  --radius-lg: 12px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  /* height: 100% 안티패턴 제거. 모바일 스크롤 확보를 위해 min-height 사용 */
+  min-height: 100vh;
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── 스크롤바 ────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── 헤더 ────────────────────────────────────── */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  min-height: 56px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.header-logo {
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.header-logo-icon {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, #e8a020, #f5c842);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+.header-logo-text {
+  font-size: 15px; font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.header-logo-badge {
+  font-size: 10px; color: var(--text2);
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+
+.header-sep {
+  width: 1px; height: 24px;
+  background: var(--border2);
+  flex-shrink: 0;
+}
+
+/* 파일 업로드 영역 */
+.upload-zone {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1;
+}
+
+.btn-upload {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  background: var(--amber);
+  color: #111110;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px; font-weight: 700;
+  border: none; border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .2s, transform .15s;
+}
+.btn-upload:hover { opacity: .88; transform: translateY(-1px); }
+#csvFileInput { display: none; }
+
+.upload-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text2);
+}
+.upload-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text3); flex-shrink: 0;
+  transition: background .3s;
+}
+.upload-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+.msg-bar {
+  margin-left: auto;
+  font-size: 12px; padding: 6px 12px;
+  border-radius: 5px; display: none;
+}
+.msg-bar.error { display: block; background: var(--red-dim); color: var(--red); border: 1px solid rgba(248,81,73,.3); }
+.msg-bar.ok    { display: block; background: var(--green-dim); color: var(--green); border: 1px solid rgba(63,185,80,.3); }
+
+/* ── 탭 네비게이션 ───────────────────────────── */
+.tab-nav {
+  display: flex;
+  padding: 0 24px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  gap: 2px;
+}
+
+.tab-btn {
+  padding: 12px 18px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px; font-weight: 500;
+  color: var(--text2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+  font-weight: 600;
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── 공통 레이아웃 ───────────────────────────── */
+.page { padding: 20px 24px; }
+
+/* ── 패널 / 카드 ─────────────────────────────── */
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.panel-head-title {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .7px;
+  color: var(--text2);
+}
+
+/* ── 입력 컴포넌트 ───────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 11px; color: var(--text2); font-weight: 500; letter-spacing: .4px; }
+
+input[type="text"],
+input[type="date"],
+input[type="number"] {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color .2s, box-shadow .2s;
+}
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+input[type="date"] { color-scheme: dark; }
+input[type="number"] { width: 72px; text-align: center; }
+
+/* ── 버튼 ────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 16px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px; font-weight: 600;
+  border: none; border-radius: var(--radius);
+  cursor: pointer;
+  transition: opacity .2s, transform .15s;
+  white-space: nowrap;
+}
+.btn:hover { opacity: .85; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn-primary  { background: var(--blue);   color: #fff; }
+.btn-success  { background: var(--green);  color: #fff; }
+.btn-danger   { background: var(--red);    color: #fff; }
+.btn-warning  { background: var(--amber);  color: #fff; }
+.btn-ghost {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+}
+.btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+
+.btn-sm { padding: 6px 10px; font-size: 11px; }
+
+/* ── 기간 버튼 및 체크박스 분리 디자인 ──────────── */
+.period-group {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+}
+
+.period-wrapper {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 4px 10px;
+}
+.period-wrapper input[type="checkbox"] {
+  appearance: none; width: 14px; height: 14px;
+  border: 1px solid var(--border2); border-radius: 3px; background: var(--bg); cursor: pointer; flex-shrink: 0;
+  transition: all .2s;
+}
+.period-wrapper input[type="checkbox"]:checked {
+  background: #fff; border-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 4l3 3 5-6' stroke='%23e8a020' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 10px; background-repeat: no-repeat; background-position: center;
+}
+.period-btn-txt {
+  background: transparent; border: none; color: var(--text2);
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Noto Sans KR', sans-serif;
+  padding: 0; transition: color .2s;
+}
+.period-btn-txt:hover { color: var(--blue); }
+
+.standalone-pill {
+  border-radius: 20px; padding: 5px 12px; height: 26px; font-size: 12px;
+}
+
+/* ── 탭 1: 차트 뷰 ───────────────────────────── */
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+}
+
+.chart-hint {
+  width: 100%;
+  font-size: 11px; color: var(--text3);
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 4px;
+}
+
+.chart-wrap-outer {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.chart-title-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.chart-title-text {
+  font-size: 14px; font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.2px;
+}
+.chart-inner { padding: 12px 16px 16px; height: 540px; position: relative; }
+
+/* ── 요약 카드 ───────────────────────────────── */
+.summary-box {
+  display: none;
+  background: var(--bg2);
+  border: 1px solid rgba(232,160,32,.2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-top: 16px;
+}
+.summary-box.visible { display: block; }
+
+.summary-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(232,160,32,0.07);
+  border-bottom: 1px solid rgba(232,160,32,.15);
+}
+.summary-header-title { font-size: 12px; font-weight: 700; color: var(--blue); letter-spacing: .2px; }
+.summary-max {
+  font-size: 12px; color: var(--text2);
+}
+.summary-max b { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.summary-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.summary-card.highlight {
+  border-color: rgba(210,153,34,.4);
+  background: var(--amber-dim);
+}
+.summary-card-label { font-size: 11px; font-weight: 600; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
+.summary-card-date { font-size: 10px; color: var(--text2); margin-bottom: 8px; }
+.summary-card-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px; font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.summary-card-value.up { color: var(--blue); }
+.summary-card-value.down { color: var(--red); }
+
+/* ── 파동 이력 리스트 ───────────────────────── */
+.wave-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px;
+}
+.wave-item {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 14px 16px;
+  background: var(--bg3);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--border2);
+  min-width: 150px;
+  flex: 1 1 150px;
+  max-width: 220px;
+}
+.wave-item.start { border-left-color: var(--green); background: rgba(46,204,142,0.05); }
+.wave-item.complete { border-left-color: var(--red); background: rgba(240,92,92,0.05); }
+.wave-item-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--text2); margin-bottom: 2px;
+}
+.wave-item.start .wave-item-title { color: var(--green); }
+.wave-item.complete .wave-item-title { color: var(--red); }
+.wave-item-date { font-size: 11px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+.wave-item-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 17px; font-weight: 700;
+  color: var(--text);
+}
+
+/* ── 탭 2: 종목 비교 테이블 ─────────────────────────── */
+.table-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 12px;
+}
+
+.ctrl-divider {
+  width: 1px; height: 36px;
+  background: var(--border2);
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin: 0 4px;
+}
+
+.file-input-label {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text2);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  width: 100%;
+}
+.file-input-label:hover { border-color: var(--green); color: var(--green); }
+#batchStockFileInput { display: none; }
+
+.table-period-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+}
+.table-period-label {
+  font-size: 11px; color: var(--text2);
+  font-weight: 600; text-transform: uppercase;
+  letter-spacing: .5px; margin-right: 4px;
+  white-space: nowrap;
+}
+
+/* ── 데이터 테이블 ───────────────────────────── */
+.data-table-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.table-scroll { overflow-x: auto; max-height: 580px; overflow-y: auto; }
+
+table { width: 100%; border-collapse: collapse; min-width: 800px; }
+
+thead { position: sticky; top: 0; z-index: 10; }
+thead th {
+  background: var(--bg3);
+  padding: 11px 14px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color .2s;
+}
+thead th.sortable:hover { color: var(--blue); }
+thead th.sort-active { color: var(--blue); }
+thead th.sort-active-purple { color: var(--purple); }
+thead th.num { text-align: right; }
+thead th.center { text-align: center; }
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(232,160,32,.09); }
+
+td { padding: 12px 14px; font-size: 13px; }
+td.num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+td.center { text-align: center; }
+td.code { color: var(--text3); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+td.name { font-weight: 500; }
+td.rank { color: var(--text3); font-family: 'JetBrains Mono', monospace; font-size: 11px; width: 36px; }
+
+td.val-up   { color: var(--blue);   font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 12px; }
+td.val-down { color: var(--red);    font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 12px; }
+td.val-purple { color: var(--purple); font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 12px; }
+td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 12px; }
+
+.stock-name-cell {
+  cursor: pointer;
+}
+.stock-name-cell:hover .name { color: var(--blue); }
+.stock-name-toggle { font-size: 10px; color: var(--text3); margin-right: 6px; }
+
+/* 인라인 차트 행 */
+.chart-row { background: var(--bg3); }
+.chart-row td { padding: 16px; }
+.chart-row-inner { height: 280px; position: relative; }
+.chart-reset-overlay { position:absolute; top:6px; right:6px; z-index:10; display:none; }
+.chart-reset-overlay.visible { display:block; }
+.chart-reset-overlay button { padding:3px 9px; font-size:10px; background:var(--bg3); color:var(--text2); border:1px solid var(--border2); border-radius:4px; cursor:pointer; font-family:inherit; }
+.chart-reset-overlay button:hover { color:var(--blue); border-color:var(--blue); }
+
+/* 스켈레톤 */
+.empty-row td {
+  color: var(--text3);
+  padding: 40px 16px;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* ── 공통 애니메이션 ─────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.panel, .chart-wrap-outer, .data-table-wrap, .summary-box {
+  animation: fadeIn .3s ease both;
+}
+
+/* ── 자동완성 검색박스 ───────────────────────── */
+.search-wrap {
+  position: relative;
+  width: 100%;
+}
+.search-wrap input {
+  width: 100%;
+  padding-right: 32px;
+}
+.search-clear {
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--text3); font-size: 16px;
+  cursor: pointer; line-height: 1;
+  display: none;
+  padding: 4px;
+}
+.search-clear:hover { color: var(--text2); }
+
+.ac-dropdown {
+  position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  z-index: 500;
+  max-height: 280px;
+  overflow-y: auto;
+  display: none;
+}
+.ac-dropdown.open { display: block; animation: fadeIn .15s ease both; }
+
+.ac-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.focused { background: var(--blue-dim); }
+
+.ac-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+  min-width: 58px;
+  text-align: center;
+}
+.ac-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+}
+.ac-name em {
+  font-style: normal;
+  color: var(--blue);
+  font-weight: 700;
+}
+.ac-alias {
+  font-size: 10px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.ac-empty {
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 12px;
+}
+
+/* ── 모바일 환경 대응 최적화 (갤럭시 S24 및 스마트폰 타겟) ── */
+@media (max-width: 768px) {
+  .app-header {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    height: auto;
+    gap: 12px;
+  }
+  .header-logo { width: 100%; justify-content: flex-start; }
+  .header-sep { display: none; }
+  
+  .upload-zone {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .btn-upload, #drivePickerBtn, #clearCacheBtn {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+    font-size: 13px;
+  }
+  
+  .upload-status { width: 100%; justify-content: flex-start; }
+  .msg-bar { width: 100%; margin-left: 0; text-align: center; }
+  
+  .tab-nav { padding: 0 12px; }
+  .tab-btn { flex: 1; text-align: center; padding: 12px 8px; font-size: 13px; }
+  
+  .page { padding: 16px 12px; }
+  
+  .chart-controls, .table-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .field { min-width: 100% !important; }
+  .ctrl-divider { display: none; }
+  
+  .btn { width: 100%; }
+  #addTableStockBtn { width: 100%; margin-top: 4px; }
+  
+  .period-group { justify-content: flex-start; width: 100%; }
+  
+  .chart-inner { height: 320px; padding: 12px 8px; }
+  .chart-title-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  
+  .summary-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .summary-grid { grid-template-columns: 1fr; }
+  
+  .table-period-bar { flex-direction: column; align-items: flex-start; padding: 12px; gap: 12px; }
+  
+  /* ── 모바일 종목 비교 테이블: 반응형 카드 레이아웃 전환 ── */
+  table { min-width: 100%; border: none; }
+  thead { display: none; /* 모바일에서는 열 제목 숨김 */ }
+  .table-scroll { overflow-y: visible; max-height: none; overflow-x: hidden; }
+  tbody { display: flex; flex-direction: column; gap: 16px; }
+
+  tr.data-row {
+    display: flex; flex-direction: column;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+  tr.data-row.expanded {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+  }
+
+  tr.data-row > td {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    text-align: right;
+  }
+  tr.data-row > td:last-child { border-bottom: none; }
+
+  tr.data-row > td::before {
+    content: attr(data-label);
+    font-size: 11px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase;
+  }
+
+  td.hide-mobile { display: none !important; }
+
+  td.stock-name-cell {
+    background: var(--bg2);
+    border-bottom: 2px solid var(--border);
+    justify-content: flex-start;
+  }
+  td.stock-name-cell::before { display: none; }
+
+  td.manage-cell { padding: 12px 16px; }
+  td.manage-cell::before { display: none; }
+  td.manage-cell .btn-sm { width: 100%; padding: 10px 0; font-size: 13px; }
+
+  tr.chart-row {
+    display: block;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-bottom-left-radius: var(--radius-lg);
+    border-bottom-right-radius: var(--radius-lg);
+    margin-top: -16px; /* tbody gap과 상쇄시켜 data-row와 결합 */
+    padding: 12px;
+  }
+
+  td.chart-td { display: block; padding: 0; border: none; text-align: left; }
+  td.chart-td::before { display: none; }
+  
+  tr.empty-row { display: block; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  tr.empty-row td { display: block; text-align: center; }
+  tr.empty-row td::before { display: none; }
+}
+</style>
+</head>
+
+<body>
+
+<div id="progressOverlay" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(13,17,23,0.92); backdrop-filter:blur(6px);
+  flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+  <div style="text-align:center">
+    <div style="font-size:32px;margin-bottom:12px" id="overlayIcon">⚙️</div>
+    <div style="font-size:16px;font-weight:600;color:#e6edf3;margin-bottom:6px" id="overlayTitle">처리 중...</div>
+    <div style="font-size:13px;color:#8b949e" id="overlaySubtitle">잠시만 기다려주세요</div>
+  </div>
+  <div style="width:380px;max-width:90vw">
+    <div style="background:#21262d;border-radius:8px;height:8px;overflow:hidden">
+      <div id="progressBar" style="height:100%;background:linear-gradient(90deg,#388bfd,#58a6ff);border-radius:8px;width:0%;transition:width .3s ease"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:#484f58">
+      <span id="progressCount">0건</span>
+      <span id="progressPct">0%</span>
+    </div>
+  </div>
+</div>
+
+<header class="app-header">
+  <div class="header-logo">
+    <div class="header-logo-icon">📊</div>
+    <span class="header-logo-text">StockAnalyzer</span>
+    <span class="header-logo-badge">PRO</span>
+  </div>
+
+  <div class="header-sep"></div>
+
+  <div class="upload-zone">
+    <label class="btn-upload" for="csvFileInput">
+      ⬆ CSV 업로드
+    </label>
+    <input type="file" id="csvFileInput" accept=".csv">
+
+    <button id="drivePickerBtn" class="btn btn-ghost" style="white-space:nowrap;gap:6px">
+      <svg width="14" height="14" viewBox="0 0 87.3 78" style="flex-shrink:0"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L28 50H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="M43.65 25L29.35 0c-1.35.8-2.5 1.9-3.3 3.3L1.2 45.5C.4 46.9 0 48.45 0 50h28z" fill="#00ac47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 54.5c.8-1.4 1.2-2.95 1.2-4.5H59.3l5.9 12.7z" fill="#ea4335"/><path d="M43.65 25L57.95 0H29.35z" fill="#00832d"/><path d="M59.3 50H87.3L73.55 25H45.3z" fill="#2684fc"/><path d="M43.65 25L29.4 50l14.25 26.8L57.95 50z" fill="#ffba00"/></svg>
+      구글 드라이브
+    </button>
+
+    <div class="upload-status">
+      <div class="upload-dot" id="uploadDot"></div>
+      <span id="uploadStatus">불러오는 중…</span>
+    </div>
+    <div id="cacheBadge" style="display:none;align-items:center;gap:6px;padding:5px 10px;background:var(--green-dim);border:1px solid rgba(63,185,80,.3);border-radius:5px;font-size:12px;color:var(--green)">
+      ⚡ 자동 로드됨 · <span id="cacheDateLabel"></span>
+    </div>
+    <button id="clearCacheBtn" style="display:none" class="btn btn-ghost" title="브라우저에 저장된 데이터를 삭제합니다">
+      🗑 저장 초기화
+    </button>
+  </div>
+
+  <div class="msg-bar" id="msgBar"></div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" data-target="chart-view">📈 단일 종목 차트</button>
+  <button class="tab-btn" data-target="table-view">📋 종목 비교 테이블</button>
+</nav>
+
+<div id="chart-view" class="tab-content active">
+<div class="page">
+
+  <div class="chart-controls">
+    <div class="field">
+      <label>종목 검색 (코드 또는 종목명)</label>
+      <div class="search-wrap" id="chartSearchWrap">
+        <input type="text" id="searchInput" placeholder="예: 005930 또는 삼성전자" autocomplete="off">
+        <button class="search-clear" id="chartSearchClear">✕</button>
+        <div class="ac-dropdown" id="chartAcDropdown"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>시작일</label>
+      <input type="date" id="startDateInput">
+    </div>
+    <div class="field">
+      <label>종료일</label>
+      <input type="date" id="endDateInput">
+    </div>
+    <button id="searchBtn" class="btn btn-primary">검색</button>
+    <button id="exportBtn" class="btn btn-ghost" style="display:none">⬇ CSV 다운로드</button>
+
+    <div style="width:100%; border-top:1px solid var(--border); padding-top:12px; display:flex; flex-direction:column; gap:8px;">
+      <span style="font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">기간 선택</span>
+      
+      <div class="period-group">
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="today" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="today">오늘</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="thisYear" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="thisYear">올해</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="20" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="20">20일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="40" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="40">40일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="60" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="60">60일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="120" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="120">120일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="240" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="240">240일</button>
+        </div>
+        <div class="period-wrapper">
+          <input type="checkbox" class="period-checkbox" data-days="all" title="요약 추가">
+          <button type="button" class="period-btn-txt period-btn" data-days="all">전체</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-hint">
+      💡 차트의 점을 연속 클릭하면 시작일/종료일을 빠르게 지정할 수 있습니다.
+    </div>
+  </div>
+
+  <div class="chart-wrap-outer">
+    <div class="chart-title-bar">
+      <span class="chart-title-text" id="combinedChartTitle">종목 추이 종합</span>
+      <span id="hlBadge" style="display:none;font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(46,204,142,0.15);color:#2ecc8e;border:1px solid rgba(46,204,142,0.3);margin-left:6px;">📊 봉차트 적용중</span>
+      <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);align-items:center;">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#e8a020;display:inline-block;border-radius:2px"></span>현재가</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#38bdf8;display:inline-block;border-radius:2px"></span>보유계좌수</span>
+        <button id="resetZoomBtn" class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:10px;display:none;">초기화</button>
+      </div>
+    </div>
+    <div class="chart-inner">
+      <canvas id="combinedChart"></canvas>
+    </div>
+  </div>
+
+  <div class="summary-box" id="summaryContainer">
+    <div class="summary-header">
+      <span class="summary-header-title">📊 기간 매집 요약 지표</span>
+      <span class="summary-max">전체 기간 최대 보유계좌수: <b id="summaryMaxAccounts">-</b> 계좌</span>
+    </div>
+    <div class="summary-grid" id="summaryMetricsList"></div>
+  </div>
+
+  <div class="summary-box" id="waveInfoContainer">
+    <div class="summary-header">
+      <span class="summary-header-title">🌊 파동 진행 이력</span>
+    </div>
+    <div class="wave-list" id="waveInfoList"></div>
+  </div>
+
+</div>
+</div>
+
+<div id="table-view" class="tab-content">
+<div class="page">
+
+  <div class="table-controls">
+    <div class="field">
+      <label>비교 시작일</label>
+      <input type="date" id="globalStartDate">
+    </div>
+    <div class="field">
+      <label>비교 종료일</label>
+      <input type="date" id="globalEndDate">
+    </div>
+
+    <div class="ctrl-divider"></div>
+
+    <div class="field">
+      <label>수동 종목 추가 (코드 또는 종목명)</label>
+      <div class="search-wrap" id="tableSearchWrap">
+        <input type="text" id="globalSearchInput" placeholder="코드 또는 종목명" autocomplete="off">
+        <button class="search-clear" id="tableSearchClear">✕</button>
+        <div class="ac-dropdown" id="tableAcDropdown"></div>
+      </div>
+      <button id="addTableStockBtn" class="btn btn-primary">추가</button>
+    </div>
+
+    <div class="ctrl-divider"></div>
+
+    <div class="field">
+      <label>종목 일괄 추가</label>
+      <label class="file-input-label" for="batchStockFileInput">📂 CSV 일괄 추가</label>
+      <input type="file" id="batchStockFileInput" accept=".csv">
+    </div>
+
+    <div style="display:flex;gap:8px;width:100%;margin-top:8px">
+      <button id="resetSortBtn" class="btn btn-ghost" style="flex:1">↺ 정렬 초기화</button>
+      <button id="clearTableBtn" class="btn btn-danger" style="flex:1">전체 비우기</button>
+    </div>
+  </div>
+
+  <div class="table-period-bar">
+    <span class="table-period-label">기간 선택</span>
+    <div class="period-group">
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="today">오늘</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="thisYear">올해</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="20">20일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="40">40일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="60">60일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="120">120일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="240">240일</button>
+      <button class="btn btn-sm btn-ghost standalone-pill global-period-btn" data-days="all">전체</button>
+    </div>
+  </div>
+
+  <div class="data-table-wrap">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:28px" class="center">#</th>
+            <th>종목명</th>
+            <th class="num">최소 계좌수</th>
+            <th class="num">최대 계좌수</th>
+            <th class="num"><span id="thStartLabel">시작일</span> 계좌수</th>
+            <th class="num"><span id="thEndLabel">종료일</span> 계좌수</th>
+            <th class="num sortable sort-active" id="thSortPeriod">기간 매집(%) <span id="iconSortPeriod"></span></th>
+            <th class="num sortable" id="thSortCurrent">현 매집(%) <span id="iconSortCurrent"></span></th>
+            <th class="num sortable sort-active-purple" id="thSortDaily">일 매집률 <span id="thIntervalLabel"></span> <span id="iconSortDaily"></span></th>
+            <th class="center" style="width:64px">관리</th>
+          </tr>
+        </thead>
+        <tbody id="globalTableBody">
+          <tr class="empty-row"><td colspan="10">날짜를 지정하고 종목코드를 추가하여 비교를 시작하세요.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CSV 파싱 헬퍼: 헤더에서 high/low 인덱스 동적 감지
+// ══════════════════════════════════════════════════════
+function detectHLIndex(headerRow) {
+  const h = headerRow.map(c => (c||'').toString().trim().toLowerCase());
+  const hiIdx = h.findIndex(c => c === 'high' || c === '고가' || c === '최고가');
+  const loIdx = h.findIndex(c => c === 'low'  || c === '저가' || c === '최저가');
+  return { hiIdx, loIdx };
+}
+function parseHL(row, hiIdx, loIdx) {
+  const parseN = (v) => { const n = parseInt((v||'0').toString().replace(/,/g,''),10); return isNaN(n)||n===0 ? null : n; };
+  return {
+    high: hiIdx >= 0 && row.length > hiIdx ? parseN(row[hiIdx]) : null,
+    low:  loIdx >= 0 && row.length > loIdx ? parseN(row[loIdx]) : null,
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// 전역 상태
+// ══════════════════════════════════════════════════════
+let combinedChartInstance = null;
+let allParsedData = [];
+let currentFilteredData = []; // 툴팁에서 현재 데이터를 참조하기 위한 전역 변수
+let chartClickStep = 0;
+let tableSelectedStocks = new Set();
+let currentSortColumn = null;
+let currentSortDirection = 'desc';
+let expandedTableCharts = new Set();
+let tableChartInstances = {};
+
+// 종목 인덱스: 코드 → { recentName, allNames: Set, recentDate }
+let stockIndex = new Map();
+
+// Chart.js 전역 기본값
+Chart.defaults.color = '#9d9a93';
+Chart.defaults.borderColor = '#2e2c29';
+Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans KR', sans-serif";
+
+// ── 봉차트 커스텀 플러그인 (🔥 트레이딩뷰 줌 완벽 동기화 로직 적용 🔥) ──────────────────────────
+const candlestickPlugin = {
+  id: 'candlestickPlugin',
+  afterDatasetsDraw(chart) {
+    const ohlcData = chart._candleData;
+    if (!ohlcData || !ohlcData.length) return;
+
+    const ctx    = chart.ctx;
+    const yScale = chart.scales['y'];
+    const xScale = chart.scales['x'];
+    const meta   = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || !meta.data.length) return;
+
+    const area = chart.chartArea;
+    const chartW = area.right - area.left;
+
+    // 화면에 보이는 X축 스케일 범위를 기반으로 너비를 역산합니다.
+    const xMin = xScale.min ?? 0;
+    const xMax = xScale.max ?? (ohlcData.length - 1);
+    const viewRange = Math.max(1, xMax - xMin); 
+    
+    const slotWidth = chartW / viewRange;
+    const candleW = Math.max(1, slotWidth * 0.8);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(area.left, area.top, chartW, area.bottom - area.top);
+    ctx.clip();
+
+    // 꼬리(심지) 두께 자동 조절
+    const wickWidth = Math.max(1, Math.min(4, Math.floor(candleW * 0.05)));
+
+    // 그릴 필요가 없는 범위 밖 데이터는 건너뛰어 성능 확보
+    const minIdx = Math.max(0, Math.floor(xMin) - 2);
+    const maxIdx = Math.min(ohlcData.length - 1, Math.ceil(xMax) + 2);
+
+    for (let i = minIdx; i <= maxIdx; i++) {
+      const d = ohlcData[i];
+      if (!d || d.h == null || d.l == null || d.o == null || d.c == null) continue;
+      
+      const pt = meta.data[i];
+      if (!pt) continue;
+      
+      const x = pt.x;
+      // 안전장치로 차트 영역을 벗어난 점은 그리지 않음
+      if (x < area.left - candleW || x > area.right + candleW) continue;
+
+      const yH = yScale.getPixelForValue(d.h);
+      const yL = yScale.getPixelForValue(d.l);
+      const yO = yScale.getPixelForValue(d.o);
+      const yC = yScale.getPixelForValue(d.c);
+
+      const isUp  = d.c >= d.o;
+      const color = isUp ? '#2ecc8e' : '#f05c5c';
+      ctx.strokeStyle = color;
+      ctx.fillStyle   = color;
+      ctx.lineWidth   = wickWidth;
+
+      // 1. 심지 그리기
+      ctx.beginPath();
+      ctx.moveTo(x, yH);
+      ctx.lineTo(x, yL);
+      ctx.stroke();
+
+      // 2. 몸통 그리기
+      const bodyTop = Math.min(yO, yC);
+      const bodyH   = Math.max(1, Math.abs(yO - yC));
+      
+      if (candleW >= 2) {
+        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(x, bodyTop);
+        ctx.lineTo(x, bodyTop + bodyH);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+};
+
+const waveDrawerPlugin = {
+  id: 'waveDrawer',
+  afterDraw: function(chart) {
+    const markers = chart.config.options.plugins.waveMarkers;
+    if(!markers) return;
+    const ctx = chart.ctx;
+    const meta = chart.getDatasetMeta(0);
+    const yScale = chart.scales['y'];
+    const area = chart.chartArea;
+
+    ctx.save();
+    // 차트 영역 클리핑 (파동 라벨/점이 밖으로 못 나가게)
+    ctx.beginPath();
+    ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top);
+    ctx.clip();
+
+    ctx.font = 'bold 11px "Noto Sans KR"';
+    ctx.textAlign = 'center';
+    for(let i=0; i<markers.length; i++) {
+      if(!markers[i]) continue;
+      const m = markers[i];
+      const pt = meta.data[i];
+      if(!pt) continue;
+      const x = pt.x;
+      // 화면 밖 마커 건너뜀
+      if(x < area.left || x > area.right) continue;
+
+      const isComplete = m.text.includes('완료');
+      let y;
+      if (yScale && m.yValue != null) {
+        y = yScale.getPixelForValue(m.yValue);
+      } else {
+        y = pt.y;
+      }
+      const color = isComplete ? '#f05c5c' : '#2ecc8e';  // 완료=빨강, 시작=초록
+      ctx.fillStyle = color;
+      // 점
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      // 라벨 (시작=아래, 완료=위) - 차트 경계 내로 제한
+      const labelY = isComplete
+        ? Math.max(area.top + 14, y - 12)
+        : Math.min(area.bottom - 4, y + 18);
+      ctx.fillText(m.text, x, labelY);
+    }
+    ctx.restore();
+  }
+};
+
+// ── 종목코드 목록 localStorage ─────────────────────
+function loadLocalStocks() {
+  try {
+    const saved = localStorage.getItem('localTableStocks');
+    if (saved) JSON.parse(saved).forEach(c => tableSelectedStocks.add(c));
+  } catch(e) {}
+}
+function saveLocalStocks() {
+  try { localStorage.setItem('localTableStocks', JSON.stringify([...tableSelectedStocks])); } catch(e) {}
+}
+loadLocalStocks();
+
+// ══════════════════════════════════════════════════════
+// IndexedDB: 대용량 CSV 자동 저장 / 자동 로드
+// ══════════════════════════════════════════════════════
+const IDB_NAME    = 'StockDashboardDB';
+const IDB_VERSION = 1;
+const STORE_DATA  = 'csvData';
+const STORE_META  = 'csvMeta';
+let idb = null;
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    if (idb) { resolve(idb); return; }
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_DATA)) db.createObjectStore(STORE_DATA);
+      if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META);
+    };
+    req.onsuccess = e => { idb = e.target.result; resolve(idb); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function idbPut(storeName, key, value) {
+  return openIDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(value, key);
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  }));
+}
+
+function idbGet(storeName, key) {
+  return openIDB().then(db => new Promise((resolve, reject) => {
+    const tx  = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).get(key);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  }));
+}
+
+function idbDelete(storeName, key) {
+  return openIDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(key);
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  }));
+}
+
+// ── 진행률 오버레이 ─────────────────────────────────
+function showOverlay(icon, title, subtitle) {
+  document.getElementById('overlayIcon').textContent     = icon;
+  document.getElementById('overlayTitle').textContent    = title;
+  document.getElementById('overlaySubtitle').textContent = subtitle;
+  document.getElementById('progressBar').style.width     = '0%';
+  document.getElementById('progressCount').textContent   = '0건';
+  document.getElementById('progressPct').textContent     = '0%';
+  document.getElementById('progressOverlay').style.display = 'flex';
+}
+function updateOverlayProgress(count, pct) {
+  document.getElementById('progressBar').style.width   = pct + '%';
+  document.getElementById('progressCount').textContent = count.toLocaleString() + '건';
+  document.getElementById('progressPct').textContent   = Math.round(pct) + '%';
+}
+function hideOverlay() {
+  document.getElementById('progressOverlay').style.display = 'none';
+}
+
+// ── IndexedDB 저장 ──────────────────────────────────
+async function saveToIDB(fileName) {
+  showOverlay('💾', 'IndexedDB에 저장 중...', `${allParsedData.length.toLocaleString()}건 저장 중. 잠시만 기다려주세요.`);
+  updateOverlayProgress(0, 20);
+  await new Promise(r => setTimeout(r, 50));
+  try {
+    updateOverlayProgress(allParsedData.length, 60);
+    await idbPut(STORE_DATA, 'rows', allParsedData);
+    await idbPut(STORE_META, 'meta', {
+      fileName,
+      savedAt: new Date().toLocaleString('ko-KR'),
+      rowCount: allParsedData.length
+    });
+    updateOverlayProgress(allParsedData.length, 100);
+    await new Promise(r => setTimeout(r, 300));
+    hideOverlay();
+    showCacheBadge();
+    showMsg(`✓ ${allParsedData.length.toLocaleString()}건 저장 완료 — 다음 실행 시 자동 로드됩니다`, false);
+  } catch(e) {
+    hideOverlay();
+    showMsg('IndexedDB 저장 실패: ' + e.message, true);
+  }
+}
+
+// ── IndexedDB 자동 로드 (페이지 오픈 시) ────────────
+async function tryLoadFromIDB() {
+  showOverlay('⚡', '저장된 데이터 불러오는 중...', '이전에 업로드한 CSV 데이터를 복원하고 있습니다.');
+  updateOverlayProgress(0, 10);
+  try {
+    const [rows, meta] = await Promise.all([
+      idbGet(STORE_DATA, 'rows'),
+      idbGet(STORE_META, 'meta')
+    ]);
+    if (!rows || rows.length === 0) {
+      hideOverlay();
+      document.getElementById('uploadStatus').textContent = '파일을 업로드하세요 (UTF-8)';
+      return;
+    }
+    updateOverlayProgress(rows.length, 80);
+    await new Promise(r => setTimeout(r, 50));
+    allParsedData = rows;
+    updateOverlayProgress(rows.length, 100);
+    await new Promise(r => setTimeout(r, 200));
+    hideOverlay();
+    applyLoadedData(meta?.fileName || '저장된 데이터', meta?.savedAt, true);
+  } catch(e) {
+    hideOverlay();
+    document.getElementById('uploadStatus').textContent = '파일을 업로드하세요 (UTF-8)';
+  }
+}
+
+function applyLoadedData(label, savedAt, fromCache) {
+  document.getElementById('uploadDot').classList.add('ok');
+  document.getElementById('uploadStatus').textContent =
+    `${label} · ${allParsedData.length.toLocaleString()}건`;
+  if (combinedChartInstance) combinedChartInstance.destroy();
+  document.getElementById('combinedChartTitle').textContent = '종목 추이 종합';
+  buildStockIndex();
+  initAutocomplete();
+  if (document.getElementById('table-view').classList.contains('active')) {
+    autoSetTableDatesIfEmpty();
+  } else if (tableSelectedStocks.size > 0) {
+    renderGlobalTable();
+  }
+  if (fromCache) showCacheBadge(savedAt);
+}
+
+function showCacheBadge(savedAt) {
+  const badge = document.getElementById('cacheBadge');
+  const btn   = document.getElementById('clearCacheBtn');
+  if (savedAt) document.getElementById('cacheDateLabel').textContent = savedAt + ' 저장';
+  badge.style.display = 'flex';
+  btn.style.display   = 'inline-flex';
+}
+function hideCacheBadge() {
+  document.getElementById('cacheBadge').style.display = 'none';
+  document.getElementById('clearCacheBtn').style.display = 'none';
+}
+
+// ── 저장 초기화 버튼 ────────────────────────────────
+document.getElementById('clearCacheBtn').addEventListener('click', async () => {
+  if (!confirm('브라우저에 저장된 CSV 데이터를 삭제할까요?\n다음 실행 시 직접 업로드해야 합니다.')) return;
+  await idbDelete(STORE_DATA, 'rows');
+  await idbDelete(STORE_META, 'meta');
+  allParsedData = [];
+  currentFilteredData = [];
+  hideCacheBadge();
+  document.getElementById('uploadDot').classList.remove('ok');
+  document.getElementById('uploadStatus').textContent = '파일을 업로드하세요 (UTF-8)';
+  if (combinedChartInstance) { combinedChartInstance.destroy(); combinedChartInstance = null; }
+  document.getElementById('combinedChartTitle').textContent = '종목 추이 종합';
+  showMsg('저장된 데이터가 삭제되었습니다.', false);
+});
+
+tryLoadFromIDB();
+
+// ── 탭 ────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById(this.dataset.target).classList.add('active');
+    if (this.dataset.target === 'table-view' && allParsedData.length > 0) {
+      autoSetTableDatesIfEmpty();
+    }
+  });
+});
+
+function autoSetTableDatesIfEmpty() {
+  const startEl = document.getElementById('globalStartDate');
+  const endEl   = document.getElementById('globalEndDate');
+  if (startEl.value && endEl.value) {
+    if (tableSelectedStocks.size > 0) renderGlobalTable();
+    return;
+  }
+  const dates = [...new Set(allParsedData.map(d => d.date))].sort((a,b) => a < b ? -1 : 1);
+  if (!dates.length) return;
+  endEl.value   = dates.at(-1);
+  startEl.value = dates[0];
+  document.querySelectorAll('.global-period-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.days === 'all');
+  });
+  if (tableSelectedStocks.size > 0) renderGlobalTable();
+}
+
+// ══════════════════════════════════════════════════════
+// 종목 인덱스
+// ══════════════════════════════════════════════════════
+function buildStockIndex() {
+  stockIndex.clear();
+  const sorted = [...allParsedData].sort((a,b) => a.date < b.date ? -1 : 1);
+  for (const row of sorted) {
+    if (!stockIndex.has(row.code)) {
+      stockIndex.set(row.code, { recentName: row.name, allNames: new Set([row.name]) });
+    } else {
+      const entry = stockIndex.get(row.code);
+      entry.allNames.add(row.name);
+      entry.recentName = row.name;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 자동완성 공통 엔진
+// ══════════════════════════════════════════════════════
+function bindAutocomplete(inputId, dropdownId, clearBtnId, onSelect) {
+  const input    = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  const clearBtn = document.getElementById(clearBtnId);
+  let focusIdx   = -1;
+  let items      = [];
+
+  function highlight(text, query) {
+    if (!query) return escHtml(text);
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx < 0) return escHtml(text);
+    return escHtml(text.slice(0, idx)) +
+           '<em>' + escHtml(text.slice(idx, idx + query.length)) + '</em>' +
+           escHtml(text.slice(idx + query.length));
+  }
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function search(q) {
+    if (!q || stockIndex.size === 0) return [];
+    const lq = q.toLowerCase();
+    const results = [];
+    for (const [code, entry] of stockIndex) {
+      const codeMatch = code.toLowerCase().includes(lq);
+      let matchedAlias = null;
+      for (const n of entry.allNames) {
+        if (n.toLowerCase().includes(lq)) {
+          if (n !== entry.recentName) matchedAlias = n;
+          break;
+        }
+      }
+      if (codeMatch || matchedAlias !== null || entry.recentName.toLowerCase().includes(lq)) {
+        results.push({ code, recentName: entry.recentName, matchedAlias,
+          allNamesCount: entry.allNames.size });
+      }
+    }
+    results.sort((a, b) => {
+      const aCode = a.code.toLowerCase().startsWith(lq) ? 0 : 1;
+      const bCode = b.code.toLowerCase().startsWith(lq) ? 0 : 1;
+      if (aCode !== bCode) return aCode - bCode;
+      const aName = a.recentName.toLowerCase().startsWith(lq) ? 0 : 1;
+      const bName = b.recentName.toLowerCase().startsWith(lq) ? 0 : 1;
+      return aName - bName;
+    });
+    return results.slice(0, 30);
+  }
+
+  function renderDropdown(q) {
+    items = search(q);
+    focusIdx = -1;
+    if (!q) { closeDropdown(); return; }
+
+    if (items.length === 0) {
+      dropdown.innerHTML = `<div class="ac-empty">검색 결과 없음 — "${escHtml(q)}"</div>`;
+    } else {
+      dropdown.innerHTML = items.map((item, i) => {
+        const aliasHtml = item.matchedAlias
+          ? `<span class="ac-alias" title="과거 이름으로 매칭">↩ ${escHtml(item.matchedAlias)}</span>`
+          : (item.allNamesCount > 1
+            ? `<span class="ac-alias" title="이름 변경 이력 있음">이름 변경 ${item.allNamesCount}건</span>`
+            : '');
+        return `<div class="ac-item" data-idx="${i}" data-code="${escHtml(item.code)}">
+          <span class="ac-code">${highlight(item.code, q)}</span>
+          <span class="ac-name">${highlight(item.recentName, q)}</span>
+          ${aliasHtml}
+        </div>`;
+      }).join('');
+    }
+    dropdown.classList.add('open');
+    clearBtn.style.display = '';
+
+    dropdown.querySelectorAll('.ac-item').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const idx = +el.dataset.idx;
+        selectItem(items[idx]);
+      });
+    });
+  }
+
+  function selectItem(item) {
+    input.value = item.recentName + ' (' + item.code + ')';
+    input.dataset.selectedCode = item.code;
+    clearBtn.style.display = '';
+    closeDropdown();
+    onSelect(item.code, item.recentName);
+  }
+
+  function closeDropdown() {
+    dropdown.classList.remove('open');
+    focusIdx = -1;
+  }
+
+  function moveFocus(dir) {
+    const els = dropdown.querySelectorAll('.ac-item');
+    if (!els.length) return;
+    els[focusIdx]?.classList.remove('focused');
+    focusIdx = Math.max(0, Math.min(els.length - 1, focusIdx + dir));
+    els[focusIdx].classList.add('focused');
+    els[focusIdx].scrollIntoView({ block: 'nearest' });
+  }
+
+  input.addEventListener('input', () => renderDropdown(input.value.trim()));
+  input.addEventListener('focus', () => { if (input.value.trim()) renderDropdown(input.value.trim()); });
+  input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
+  input.addEventListener('keydown', e => {
+    if (!dropdown.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveFocus(-1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focusIdx >= 0 && items[focusIdx]) selectItem(items[focusIdx]);
+      else if (items[0]) selectItem(items[0]);
+    }
+    else if (e.key === 'Escape') closeDropdown();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    input.dataset.selectedCode = '';
+    clearBtn.style.display = 'none';
+    closeDropdown();
+    input.focus();
+  });
+}
+
+function initAutocomplete() {
+  bindAutocomplete('searchInput', 'chartAcDropdown', 'chartSearchClear',
+    (code) => {
+      document.getElementById('searchInput').dataset.selectedCode = code;
+      searchAndRender();
+    }
+  );
+
+  bindAutocomplete('globalSearchInput', 'tableAcDropdown', 'tableSearchClear',
+    (code) => {
+      document.getElementById('globalSearchInput').dataset.selectedCode = code;
+    }
+  );
+}
+
+// ── 구글 드라이브 Picker ──────────────────────────────
+const GOOGLE_CLIENT_ID = '1048771785529-fglk1slmje7dn110i6a58c1tg0otonu0.apps.googleusercontent.com';
+const GOOGLE_SCOPE     = 'https://www.googleapis.com/auth/drive.readonly';
+let   googleAccessToken = null;
+let   gapiReady = false;
+let   gisReady  = false;
+let   tokenClient = null;
+
+window.onGapiLoad = function() {
+  gapi.load('picker', () => { gapiReady = true; });
+};
+
+window.onGisLoad = function() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_SCOPE,
+    callback: (resp) => {
+      if (resp.error) { showMsg('구글 로그인 실패: ' + resp.error, true); return; }
+      googleAccessToken = resp.access_token;
+      openDrivePicker();
+    }
+  });
+  gisReady = true;
+};
+
+(function loadGoogleScripts() {
+  const s1 = document.createElement('script');
+  s1.src = 'https://apis.google.com/js/api.js';
+  s1.onload = () => { gapi.load('picker', () => { gapiReady = true; }); };
+  document.head.appendChild(s1);
+
+  const s2 = document.createElement('script');
+  s2.src = 'https://accounts.google.com/gsi/client';
+  s2.onload = () => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_SCOPE,
+      callback: (resp) => {
+        if (resp.error) { showMsg('구글 로그인 실패: ' + resp.error, true); return; }
+        googleAccessToken = resp.access_token;
+        openDrivePicker();
+      }
+    });
+    gisReady = true;
+  };
+  document.head.appendChild(s2);
+})();
+
+document.getElementById('drivePickerBtn').addEventListener('click', () => {
+  if (!gisReady) { showMsg('구글 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.', true); return; }
+  if (googleAccessToken) {
+    openDrivePicker();
+  } else {
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  }
+});
+
+function openDrivePicker() {
+  if (!gapiReady) { showMsg('Google Picker 로딩 중입니다. 잠시 후 다시 시도하세요.', true); return; }
+  const picker = new google.picker.PickerBuilder()
+    .addView(new google.picker.DocsView()
+      .setIncludeFolders(true)
+      .setMimeTypes('text/csv,text/plain,application/vnd.ms-excel'))
+    .setOAuthToken(googleAccessToken)
+    .setCallback(pickerCallback)
+    .setTitle('CSV 파일 선택')
+    .build();
+  picker.setVisible(true);
+}
+
+async function pickerCallback(data) {
+  if (data.action !== google.picker.Action.PICKED) return;
+  const file = data.docs[0];
+  const fileId = file.id;
+  const fileName = file.name;
+
+  showOverlay('📂', `구글 드라이브에서 불러오는 중...`, `${fileName}`);
+  updateOverlayProgress(0, 20);
+  hideCacheBadge();
+  currentFileName = fileName;
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${googleAccessToken}` } }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    updateOverlayProgress(0, 50);
+
+    allParsedData = [];
+    Papa.parse(text, {
+      skipEmptyLines: true,
+      header: true,
+      complete(r) {
+        for (const row of r.data) {
+          const code     = row['종목코드'] ? String(row['종목코드']).replace(/'/g,'').trim() : '';
+          const name     = (row['종목명']||'알수없음').trim();
+          const price    = parseInt(String(row['현재가']||'0').replace(/,/g,''), 10);
+          const accounts = parseInt(String(row['보유계좌수']||'0').replace(/,/g,''), 10);
+          const dateStr  = String(row['날짜']||'').trim().split(/[\sT]/)[0];
+          if (isNaN(price) || isNaN(accounts) || !code || !dateStr) continue;
+          const rawHigh = row['high'] ?? row['High'] ?? row['HIGH'] ?? row['고가'] ?? row['최고가'];
+          const rawLow  = row['low']  ?? row['Low']  ?? row['LOW']  ?? row['저가'] ?? row['최저가'];
+          const high = rawHigh != null && rawHigh !== '' ? parseInt(String(rawHigh).replace(/,/g,''), 10) : null;
+          const low  = rawLow  != null && rawLow  !== '' ? parseInt(String(rawLow ).replace(/,/g,''), 10) : null;
+          const rawOpen = row['open'] ?? row['Open'] ?? row['OPEN'] ?? row['시가'];
+          const open = rawOpen != null && rawOpen !== '' ? parseInt(String(rawOpen).replace(/,/g,''), 10) : null;
+          allParsedData.push({ code, name, price, accounts, date: dateStr,
+            high: isNaN(high)||high===0 ? null : high,
+            low:  isNaN(low) ||low===0  ? null : low,
+            open: isNaN(open)||open===0 ? null : open });
+        }
+        updateOverlayProgress(allParsedData.length, 100);
+        if (allParsedData.length === 0) {
+          hideOverlay();
+          showMsg('데이터 구조가 맞지 않습니다.', true);
+          return;
+        }
+        applyLoadedData(fileName, null, false);
+        saveToIDB(fileName);
+      },
+      error(err) {
+        hideOverlay();
+        showMsg('CSV 파싱 오류: ' + err.message, true);
+      }
+    });
+  } catch(e) {
+    hideOverlay();
+    googleAccessToken = null;
+    showMsg('불러오기 실패. 다시 버튼을 눌러 재로그인하세요.', true);
+  }
+}
+
+let currentFileName = '';
+document.getElementById('csvFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  currentFileName = file.name;
+  hideMsg();
+  hideCacheBadge();
+  document.getElementById('summaryContainer').classList.remove('visible');
+  document.querySelectorAll('.period-checkbox').forEach(c => c.checked = false);
+
+  allParsedData = [];
+  const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+  showOverlay('📂', `CSV 파싱 중... (${fileSizeMB}MB)`,
+    '대용량 파일입니다. 완료될 때까지 창을 닫지 마세요.');
+
+  let rowCount = 0;
+  const estimatedRows = Math.max(1, Math.round(file.size / 60));
+  Papa.parse(file, {
+    skipEmptyLines: true,
+    encoding: "UTF-8",
+    header: true,   // PapaParse가 직접 헤더 파싱 → row는 {종목코드:..., high:..., low:...} 객체
+    chunk(results) {
+      for (const row of results.data) {
+        const code     = row['종목코드'] ? String(row['종목코드']).replace(/'/g,'').trim() : "";
+        const name     = (row['종목명']||'알수없음').trim();
+        const price    = parseInt(String(row['현재가']||'0').replace(/,/g,''), 10);
+        const accounts = parseInt(String(row['보유계좌수']||'0').replace(/,/g,''), 10);
+        const dateStr  = String(row['날짜']||'').trim().split(/[\sT]/)[0];
+        if (isNaN(price) || isNaN(accounts) || !code || !dateStr) continue;
+        // 고가/저가: 컬럼명 대소문자 모두 대응
+        const rawHigh = row['high'] ?? row['High'] ?? row['HIGH'] ?? row['고가'] ?? row['최고가'];
+        const rawLow  = row['low']  ?? row['Low']  ?? row['LOW']  ?? row['저가'] ?? row['최저가'];
+        const high = rawHigh != null && rawHigh !== '' ? parseInt(String(rawHigh).replace(/,/g,''), 10) : null;
+        const low  = rawLow  != null && rawLow  !== '' ? parseInt(String(rawLow ).replace(/,/g,''), 10) : null;
+        const rawOpen = row['open'] ?? row['Open'] ?? row['OPEN'] ?? row['시가'];
+        const open = rawOpen != null && rawOpen !== '' ? parseInt(String(rawOpen).replace(/,/g,''), 10) : null;
+        allParsedData.push({ code, name, price, accounts, date: dateStr,
+          high: isNaN(high)||high===0 ? null : high,
+          low:  isNaN(low) ||low===0  ? null : low,
+          open: isNaN(open)||open===0 ? null : open });
+        rowCount++;
+      }
+      const pct = Math.min(95, (rowCount / estimatedRows) * 100);
+      updateOverlayProgress(rowCount, pct);
+    },
+    complete() {
+      updateOverlayProgress(allParsedData.length, 100);
+      if (allParsedData.length === 0) {
+        hideOverlay();
+        showMsg("유효한 데이터 구조가 없습니다.", true);
+        return;
+      }
+      applyLoadedData(currentFileName, null, false);
+      saveToIDB(currentFileName);
+    },
+    error(err) {
+      hideOverlay();
+      showMsg("CSV 파싱 오류: " + err.message, true);
+    }
+  });
+});
+
+function showMsg(msg, isError) {
+  const el = document.getElementById('msgBar');
+  el.textContent = msg;
+  el.className = 'msg-bar ' + (isError ? 'error' : 'ok');
+  if (!isError) setTimeout(() => el.classList.remove('ok'), 4000);
+}
+function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
+
+// ══════════════════════════════════════════════════════
+// 파동 탐색 알고리즘 (순방향/소급 탐색으로 전면 수정)
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// 줌/패닝 공통 유틸
+// ══════════════════════════════════════════════════════
+
+// PC: 차트 캔버스 마우스 휠로 페이지 스크롤 방지
+function _blockWheelScroll(canvas) {
+  canvas.addEventListener('wheel', e => { e.preventDefault(); }, { passive: false });
+}
+
+// 터치 기기 여부 감지
+function _isTouchDevice() { return window.matchMedia('(hover:none)').matches; }
+
+// 터치 제스처 중 툴팁 차단 (오버레이 방식)
+function _onGestureStart(chart) {
+  if (!_isTouchDevice()) return;
+  if (!chart?.canvas) return;
+  const canvas = chart.canvas;
+  let ov = canvas._tooltipBlocker;
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.style.cssText = 'position:absolute;inset:0;z-index:99;touch-action:pinch-zoom pan-x;';
+    canvas.parentElement.style.position = 'relative';
+    canvas.parentElement.appendChild(ov);
+    canvas._tooltipBlocker = ov;
+  }
+  ov.style.display = 'block';
+}
+function _onGestureEnd(chart) {
+  if (!chart?.canvas) return;
+  const ov = chart.canvas._tooltipBlocker;
+  setTimeout(() => { if (ov) ov.style.display = 'none'; }, 250);
+}
+
+// 인라인 차트 개별 리셋 버튼 표시/숨김
+function _showInlineResetBtn(code) {
+  document.getElementById('reset-overlay-' + code)?.classList.add('visible');
+}
+
+// 인라인 차트 zoom 옵션 생성 (code별 리셋 버튼 연동)
+function _makeZoomOptions(code) {
+  return {
+    pan: {
+      enabled: true, mode: 'x',
+      onPanStart({ chart }) { _onGestureStart(chart); },
+      onPan()               { _showInlineResetBtn(code); },
+      onPanComplete({ chart }) { _showInlineResetBtn(code); _onGestureEnd(chart); }
+    },
+    zoom: {
+      wheel:  { enabled: true, speed: 0.1 },
+      pinch:  { enabled: true },
+      mode:   'x',
+      onZoomStart({ chart, event }) {
+        if (event?.cancelable) event.preventDefault();
+        _onGestureStart(chart);
+      },
+      onZoom()                { _showInlineResetBtn(code); },
+      onZoomComplete({ chart }) { _showInlineResetBtn(code); _onGestureEnd(chart); }
+    },
+    limits: { x: { minRange: 5 } }
+  };
+}
+
+function resetTableChart(code) {
+  if (tableChartInstances[code]) tableChartInstances[code].resetZoom();
+  document.getElementById('reset-overlay-' + code)?.classList.remove('visible');
+}
+
+// 트레이딩뷰처럼 보이는 x 범위에 맞게 y축 자동 조정
+function autoScaleY(chart) {
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+  const y1Scale = chart.scales.y1;
+  if (!xScale || !yScale) return;
+
+  const xMin = xScale.min;
+  const xMax = xScale.max;
+
+  // 전체(또는 거의 전체) 범위로 돌아온 경우 y축 리셋
+  const totalLen = (chart.data.datasets[0]?.data?.length ?? 0) - 1;
+  const threshold = Math.max(2, totalLen * 0.02); // 전체의 2% 이내면 전체로 간주
+  if (xMin <= threshold && xMax >= totalLen - threshold) {
+    resetYScale(chart);
+    chart.update('none');
+    return;
+  }
+
+  const datasets = chart.data.datasets;
+  let visiblePrices = [];
+  let visibleAccounts = [];
+
+  datasets.forEach((ds, di) => {
+    const meta = chart.getDatasetMeta(di);
+    if (!meta || meta.hidden) return;
+    ds.data.forEach((val, i) => {
+      if (i < xMin - 1 || i > xMax + 1) return;
+      if (val != null) {
+        if (di === 0) visiblePrices.push(val);
+        if (di === 1) visibleAccounts.push(val);
+      }
+    });
+  });
+
+  if (chart._candleData) {
+    chart._candleData.forEach((d, i) => {
+      if (!d || i < xMin - 1 || i > xMax + 1) return;
+      if (d.h != null) visiblePrices.push(d.h);
+      if (d.l != null) visiblePrices.push(d.l);
+    });
+  }
+
+  if (visiblePrices.length > 0) {
+    const minP = Math.min(...visiblePrices);
+    const maxP = Math.max(...visiblePrices);
+    const pad  = (maxP - minP) * 0.08 || minP * 0.05;
+    // min/max 직접 설정 (suggestedMin/Max보다 우선 적용)
+    yScale.options.min = Math.max(0, minP - pad);
+    yScale.options.max = maxP + pad;
+  }
+
+  if (y1Scale && visibleAccounts.length > 0) {
+    const minA = Math.min(...visibleAccounts);
+    const maxA = Math.max(...visibleAccounts);
+    const padA = (maxA - minA) * 0.08 || minA * 0.05;
+    y1Scale.options.min = Math.max(0, minA - padA);
+    y1Scale.options.max = maxA + padA;
+  }
+
+  chart.update('none');
+}
+
+// 원본 y축 범위 복원용
+function resetYScale(chart) {
+  const yScale  = chart.scales.y;
+  const y1Scale = chart.scales.y1;
+  if (!yScale) return;
+
+  // 전체 데이터 기준 원본 범위 재계산
+  const allPrices = [];
+  const allAccounts = [];
+  const ds0 = chart.data.datasets[0];
+  const ds1 = chart.data.datasets[1];
+  if (ds0) ds0.data.forEach(v => { if (v != null) allPrices.push(v); });
+  if (ds1) ds1.data.forEach(v => { if (v != null) allAccounts.push(v); });
+  if (chart._candleData) {
+    chart._candleData.forEach(d => {
+      if (!d) return;
+      if (d.h != null) allPrices.push(d.h);
+      if (d.l != null) allPrices.push(d.l);
+    });
+  }
+
+  if (allPrices.length > 0) {
+    const minP = Math.min(...allPrices);
+    const maxP = Math.max(...allPrices);
+    const pad  = (maxP - minP) * 0.5 || minP * 0.1;
+    // min/max와 suggestedMin/Max 모두 초기화
+    yScale.options.min         = undefined;
+    yScale.options.max         = undefined;
+    yScale.options.suggestedMin = Math.max(0, minP - pad);
+    yScale.options.suggestedMax = maxP + pad;
+    yScale.update();
+  }
+
+  if (y1Scale && allAccounts.length > 0) {
+    y1Scale.options.min         = undefined;
+    y1Scale.options.max         = undefined;
+    const minA = Math.min(...allAccounts);
+    const maxA = Math.max(...allAccounts);
+    const padA = (maxA - minA) * 0.5 || minA * 0.1;
+    y1Scale.options.suggestedMin = Math.max(0, minA - padA);
+    y1Scale.options.suggestedMax = maxA + padA;
+    y1Scale.update();
+  }
+}
+
+function calculateWaves(data) {
+  // 마커: { text, yValue } 객체로 반환
+  // yValue: 시작=저가(low), 완료=고가(high) → 차트에서 정확한 위치에 표시
+  let markers = new Array(data.length).fill(null);
+  if (data.length === 0) return markers;
+
+  const hasHL = data.some(d => d.low != null && d.high != null);
+  const getLow  = d => (hasHL && d.low  != null) ? d.low  : d.price;
+  const getHigh = d => (hasHL && d.high != null) ? d.high : d.price;
+
+  const setMarker = (idx, text, yValue) => {
+    if (markers[idx]) {
+      markers[idx] = { text: markers[idx].text + ' / ' + text, yValue };
+    } else {
+      markers[idx] = { text, yValue };
+    }
+  };
+
+  let currentWave = 1;
+  let state = 'SEEK_FIRST_TARGET';
+  let candMin = getLow(data[0]);
+  let candMinIdx = 0;
+  let currentStartPrice = candMin;
+
+  for (let i = 1; i < data.length; i++) {
+    const lo = getLow(data[i]);
+    const hi = getHigh(data[i]);
+
+    if (state === 'SEEK_FIRST_TARGET') {
+      if (lo <= candMin) {
+        candMin = lo; candMinIdx = i;
+      } else if (hi >= candMin * 2) {
+        setMarker(candMinIdx, "파동시작", candMin);  // 저가 위치
+        currentStartPrice = candMin;
+        setMarker(i, "1차완료", hi);                 // 고가 위치
+        state = 'SEEK_DIP';
+        candMin = lo; candMinIdx = i;
+      }
+    } else if (state === 'SEEK_DIP') {
+      if (lo <= candMin) {
+        candMin = lo; candMinIdx = i;
+      }
+      if (hi >= candMin * 2) {
+        if (candMin < currentStartPrice) {
+          currentWave = 1;
+          setMarker(candMinIdx, "파동시작", candMin);  // 저가 위치
+        } else {
+          currentWave++;
+          setMarker(candMinIdx, currentWave + "차시작", candMin);  // 저가 위치
+        }
+        currentStartPrice = candMin;
+        setMarker(i, currentWave + "차완료", hi);    // 고가 위치
+        state = 'SEEK_DIP';
+        candMin = lo; candMinIdx = i;
+      }
+    }
+  }
+
+  // 차트 끝 - 진행 중인 마커 처리
+  if (state === 'SEEK_FIRST_TARGET') {
+    setMarker(candMinIdx, "파동시작", candMin);
+  } else if (state === 'SEEK_DIP' && candMinIdx !== -1) {
+    const txt = candMin < currentStartPrice ? "파동시작" : (currentWave + 1) + "차시작";
+    if (!markers[candMinIdx] || !markers[candMinIdx].text.includes(txt)) {
+      setMarker(candMinIdx, txt, candMin);
+    }
+  }
+
+  return markers;
+}
+
+// ══════════════════════════════════════════════════════
+// 파동 UI 렌더링 함수
+// ══════════════════════════════════════════════════════
+function updateWaveInfoUI(markers, data) {
+  const container = document.getElementById('waveInfoContainer');
+  const list = document.getElementById('waveInfoList');
+
+  let hasWaves = false;
+  let html = '';
+  
+  for (let i = 0; i < markers.length; i++) {
+    if (markers[i]) {
+      hasWaves = true;
+      const m = markers[i]; // {text, yValue}
+      const markerTexts = m.text.split(' / ');
+
+      markerTexts.forEach(txt => {
+        const isComplete = txt.includes('완료');
+        const borderClass = isComplete ? 'complete' : 'start';
+        // 표시 가격: 완료=고가, 시작=저가 (없으면 종가)
+        const displayPrice = isComplete
+          ? (data[i].high  || data[i].price)
+          : (data[i].low   || data[i].price);
+        html += `
+          <div class="wave-item ${borderClass}">
+            <div>
+              <div class="wave-item-title">${txt}</div>
+              <div class="wave-item-date">${data[i].date}</div>
+            </div>
+            <div class="wave-item-price">${displayPrice.toLocaleString()}원</div>
+          </div>`;
+      });
+    }
+  }
+
+  if (hasWaves) {
+    list.innerHTML = html;
+    container.classList.add('visible');
+  } else {
+    container.classList.remove('visible');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 탭 1: 차트 뷰 이벤트 처리
+// ══════════════════════════════════════════════════════
+
+document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    if (!allParsedData.length) return showMsg("CSV 파일을 먼저 업로드하세요.", true);
+    
+    const isTable = this.classList.contains('global-period-btn');
+    let code = null;
+    let dates = [];
+
+    if (isTable) {
+      document.querySelectorAll('.global-period-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      dates = [...new Set(allParsedData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
+    } else {
+      const input = document.getElementById('searchInput');
+      code = input.dataset.selectedCode || input.value.trim();
+      if (!code) return showMsg("종목을 검색하여 선택하세요.", true);
+      const stockData = allParsedData.filter(d => d.code === code);
+      if (!stockData.length) return showMsg("데이터가 없습니다.", true);
+      dates = [...new Set(stockData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
+    }
+
+    const daysAttr = this.dataset.days;
+    let endVal = isTable ? document.getElementById('globalEndDate').value : document.getElementById('endDateInput').value;
+    
+    if (daysAttr === 'all') {
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates.at(-1);
+        document.getElementById('globalStartDate').value = dates[0];
+      } else {
+        document.getElementById('endDateInput').value = dates.at(-1);
+        document.getElementById('startDateInput').value = dates[0];
+      }
+    } else if (daysAttr === 'thisYear') {
+      let endIdx = dates.length - 1;
+      if (endVal) {
+        const t = new Date(endVal).getTime();
+        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+      }
+      let startIdx = 0;
+      const currentMaxYear = new Date(dates[endIdx]).getFullYear();
+      for(let i = endIdx; i >= 0; i--) {
+        if(new Date(dates[i]).getFullYear() < currentMaxYear) {
+          startIdx = i;
+          break;
+        }
+      }
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates[endIdx];
+        document.getElementById('globalStartDate').value = dates[startIdx];
+      } else {
+        document.getElementById('endDateInput').value = dates[endIdx];
+        document.getElementById('startDateInput').value = dates[startIdx];
+      }
+    } else if (daysAttr === 'today') {
+      let endIdx = dates.length - 1;
+      if (endVal) {
+        const t = new Date(endVal).getTime();
+        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+      }
+      const startIdx = Math.max(0, endIdx - 1);
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates[endIdx];
+        document.getElementById('globalStartDate').value = dates[startIdx];
+      } else {
+        document.getElementById('endDateInput').value = dates[endIdx];
+        document.getElementById('startDateInput').value = dates[startIdx];
+      }
+    } else {
+      const days = +daysAttr;
+      let endIdx = dates.length - 1;
+      if (endVal) {
+        const t = new Date(endVal).getTime();
+        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+      }
+      const startIdx = Math.max(0, endIdx - days);
+      if (isTable) {
+        document.getElementById('globalEndDate').value = dates[endIdx];
+        document.getElementById('globalStartDate').value = dates[startIdx];
+      } else {
+        document.getElementById('endDateInput').value = dates[endIdx];
+        document.getElementById('startDateInput').value = dates[startIdx];
+      }
+    }
+    
+    if (isTable) {
+      if (tableSelectedStocks.size > 0) renderGlobalTable();
+    } else {
+      searchAndRender();
+    }
+  });
+});
+
+document.querySelectorAll('.period-checkbox').forEach(c => c.addEventListener('change', updateCheckboxSummaries));
+
+document.getElementById('startDateInput').addEventListener('change', autoSearch);
+document.getElementById('endDateInput').addEventListener('change', autoSearch);
+document.getElementById('searchBtn').addEventListener('click', searchAndRender);
+document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+
+// 확대 축소 초기화 버튼 이벤트 바인딩
+document.getElementById('resetZoomBtn').addEventListener('click', () => {
+  document.getElementById('resetZoomBtn').style.display = 'none';
+  // 차트를 처음부터 다시 그리는 것이 가장 확실한 초기화
+  searchAndRender();
+});
+
+function autoSearch() {
+  const input = document.getElementById('searchInput');
+  const code = input.dataset.selectedCode || input.value.trim();
+  if (allParsedData.length && code) searchAndRender();
+}
+
+function searchAndRender() {
+  chartClickStep = 0;
+  const input = document.getElementById('searchInput');
+  const code  = input.dataset.selectedCode || input.value.trim();
+  const start = document.getElementById('startDateInput').value;
+  const end   = document.getElementById('endDateInput').value;
+  if (!code) return showMsg("종목을 검색하여 선택하세요.", true);
+  if (!allParsedData.length) return showMsg("CSV 파일을 업로드하세요.", true);
+  hideMsg();
+
+  // 1. 전체 데이터 추출 및 날짜순 정렬
+  const full = allParsedData.filter(d => d.code === code);
+  if (!full.length) return showMsg("해당 종목 데이터가 없습니다.", true);
+  full.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  // 2. 전체 데이터를 기준으로 진짜 파동의 위치를 완벽하게 '사전 계산'
+  const fullWaveMarkers = calculateWaves(full);
+
+  // 3. 차트에 보여줄 데이터만 기간 필터링
+  let data = [...full];
+  if (start) data = data.filter(d => new Date(d.date) >= new Date(start));
+  if (end)   data = data.filter(d => new Date(d.date) <= new Date(end));
+  if (!data.length) { document.getElementById('exportBtn').style.display='none'; return showMsg("선택 기간 내 데이터가 없습니다.", true); }
+
+  currentFilteredData = data;
+  document.getElementById('exportBtn').style.display = 'inline-flex';
+  const recentName = stockIndex.get(code)?.recentName || data.at(-1).name;
+  document.getElementById('combinedChartTitle').textContent = `[${recentName}] 현재가 및 보유계좌수 추이`;
+  // 고저가 데이터 감지 뱃지
+  const _hasHL = data.some(d => d.low != null && d.high != null);
+  const _hlBadge = document.getElementById('hlBadge');
+  if (_hlBadge) _hlBadge.style.display = _hasHL ? '' : 'none';
+  
+  // 4. 필터링된 데이터 영역 안에 사전 계산해둔 진짜 파동이 존재하는지 매핑하여 추출
+  const filteredWaveMarkers = currentFilteredData.map(d => {
+    const idx = full.findIndex(fd => fd.date === d.date);
+    return idx !== -1 ? fullWaveMarkers[idx] : null;
+  });
+  
+  renderMainChart(data, data.map(d=>d.accounts), filteredWaveMarkers);
+  updateCheckboxSummaries();
+  
+  // 5. 하단 파동 정보 UI는 기간 선택과 무관하게 전체 이력을 고정으로 표시
+  updateWaveInfoUI(fullWaveMarkers, full);
+}
+
+function renderMainChart(data, accountsData, waveMarkers) {
+  // 캔버스에 남아있는 모든 Chart 인스턴스 완전 제거
+  const canvasEl = document.getElementById('combinedChart');
+  const existingChart = Chart.getChart(canvasEl);
+  if (existingChart) existingChart.destroy();
+  if (combinedChartInstance) { combinedChartInstance.destroy(); combinedChartInstance = null; }
+
+  const parent = canvasEl.parentElement;
+  canvasEl.remove();
+  const newCanvas = document.createElement('canvas');
+  newCanvas.id = 'combinedChart';
+  parent.appendChild(newCanvas);
+  _blockWheelScroll(newCanvas);
+  const ctx = newCanvas.getContext('2d');
+
+  const labels   = data.map(d => d.date);
+  const priceData = data.map(d => d.price);
+  
+  // OHLC 데이터 유무 검사 (일부만 있어도 봉차트 모드로 진입)
+  const hasOHLC  = data.some(d => d.open != null && d.high != null && d.low != null);
+
+  const minP = Math.min(...priceData), maxP = Math.max(...priceData);
+  const range = maxP - minP;
+  const pad = range === 0 ? minP * 0.1 : range * 0.5;
+
+  // 봉차트 데이터 생성 (값이 없으면 종가로 대체하여 선형태로라도 보존)
+  const candleData = hasOHLC ? data.map(d => ({
+    x: d.date,
+    o: d.open  ?? d.price,
+    h: d.high  ?? d.price,
+    l: d.low   ?? d.price,
+    c: d.price
+  })) : null;
+
+  // 가격 dataset: 선차트로 설정해두고 플러그인에서 봉을 그림 (선은 투명 처리)
+  const priceDataset = {
+    label: '현재가', data: priceData,
+    backgroundColor: hasOHLC ? 'rgba(0,0,0,0)' : 'rgba(232,160,32,0.12)',
+    borderColor: hasOHLC ? 'rgba(0,0,0,0)' : '#e8a020',
+    borderWidth: hasOHLC ? 0 : 2,
+    pointRadius: 0, pointHitRadius: 5, pointHoverRadius: hasOHLC ? 0 : 4,
+    fill: !hasOHLC, tension: 0.2, yAxisID: 'y'
+  };
+
+  combinedChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        priceDataset,
+        {
+          label: '보유계좌수', data: accountsData,
+          backgroundColor: 'rgba(56,189,248,0.08)', borderColor: '#38bdf8',
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, pointHoverRadius: 4, fill: false, tension: 0.2, yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        waveMarkers: waveMarkers,
+        zoom: {
+          pan: {
+            enabled: true, mode: 'x',
+            onPan: function({ chart }) {
+              document.getElementById('resetZoomBtn').style.display = 'inline-flex';
+              autoScaleY(chart);
+            },
+            onPanComplete: function({ chart }) { autoScaleY(chart); }
+          },
+          zoom: {
+            wheel: { enabled: true, speed: 0.1 },
+            pinch: { enabled: true },
+            mode: 'x',
+            onZoom: function({ chart }) {
+              document.getElementById('resetZoomBtn').style.display = 'inline-flex';
+              autoScaleY(chart);
+            },
+            onZoomComplete: function({ chart }) { autoScaleY(chart); }
+          },
+          limits: { x: { minRange: 5 } }
+        },
+        tooltip: {
+          backgroundColor: '#232220',
+          borderColor: '#3d3b37', borderWidth: 1,
+          titleColor: '#9d9a93', bodyColor: '#f0ece4',
+          padding: 10,
+          callbacks: {
+            label: function(ctx) {
+              const dsLabel = ctx.dataset.label;
+              const val = ctx.parsed.y;
+              const idx = ctx.dataIndex;
+              
+              if (dsLabel.includes('현재가')) {
+                const d = currentFilteredData[idx]; 
+                if (d && d.high != null && d.low != null) {
+                  return [
+                    ` 시가 : ${(d.open ?? d.price).toLocaleString()}원`,
+                    ` 고가 : ${d.high.toLocaleString()}원`,
+                    ` 저가 : ${d.low.toLocaleString()}원`,
+                    ` 종가 : ${d.price.toLocaleString()}원`
+                  ];
+                }
+                return ` 현재가 : ${val != null ? val.toLocaleString() + '원' : '-'}`;
+              }
+              return ` ${dsLabel} : ${val != null ? val.toLocaleString() : '-'}`;
+            }
+          }
+        },
+        legend: { display: false }
+      },
+      // 5px 이내에서만 작동하며 중복 출력을 방지하는 index 모드 강제
+      interaction: { mode: 'index', intersect: true },
+      onClick(event, elements, chart) {
+        if (!elements.length) return;
+        const date = chart.data.labels[elements[0].index];
+        if (chartClickStep === 0) {
+          document.getElementById('startDateInput').value = date;
+          document.getElementById('endDateInput').value = '';
+          chartClickStep = 1;
+        } else {
+          const sv = document.getElementById('startDateInput').value;
+          if (new Date(date) < new Date(sv)) {
+            document.getElementById('startDateInput').value = date;
+            document.getElementById('endDateInput').value = sv;
+          } else {
+            document.getElementById('endDateInput').value = date;
+          }
+          chartClickStep = 0;
+          searchAndRender();
+        }
+      },
+      scales: {
+        x: { 
+          offset: true, // 💡 [해결] 💡 가장자리 데이터 잘림 방지 (양 끝에 여백 추가)
+          grid: { color: '#2e2c29' }, 
+          ticks: {
+            maxTicksLimit: 6,
+            minRotation: 0,
+            maxRotation: 0,
+            autoSkip: true,
+            autoSkipPadding: 30,
+            font: { size: 10 },
+            callback: function(val) {
+              const label = this.getLabelForValue(val);
+              if (!label) return '';
+              const p = label.split('-');
+              if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
+              return label;
+            }
+          }
+        },
+        y: {
+          type: 'linear', position: 'left',
+          title: { display: true, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } },
+          grid: { color: '#2e2c29' },
+          suggestedMin: Math.max(0, minP - pad),
+          suggestedMax: maxP + pad,
+          ticks: { callback: v => v.toLocaleString() }
+        },
+        y1: {
+          type: 'linear', position: 'right',
+          title: { display: true, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } },
+          grid: { drawOnChartArea: false },
+          ticks: { callback: v => v.toLocaleString() }
+        }
+      }
+    },
+    plugins: [candlestickPlugin, waveDrawerPlugin]
+  });
+  
+  if (hasOHLC) combinedChartInstance._candleData = candleData;
+}
+
+function updateCheckboxSummaries() {
+  const input = document.getElementById('searchInput');
+  const code = input.dataset.selectedCode || input.value.trim();
+  const container = document.getElementById('summaryContainer');
+  const list = document.getElementById('summaryMetricsList');
+  const checked = [...document.querySelectorAll('.period-checkbox:checked')];
+
+  if (!code || !allParsedData.length) { container.classList.remove('visible'); return; }
+
+  const full = allParsedData.filter(d => d.code === code);
+  if (!full.length) return;
+
+  const maxAcc = full.reduce((m,d) => d.accounts > m ? d.accounts : m, 0);
+  document.getElementById('summaryMaxAccounts').textContent = maxAcc.toLocaleString();
+  list.innerHTML = '';
+
+  if (currentFilteredData.length && maxAcc > 0) {
+    const s = currentFilteredData[0], e = currentFilteredData.at(-1);
+    const val = ((s.accounts - e.accounts) * 100) / maxAcc;
+    const days = Math.max(0, currentFilteredData.length - 1);
+    list.appendChild(makeSummaryCard({
+      label: `달력 지정 기간 매집률 (${days}영업일)`,
+      date: `${s.date} ~ ${e.date}`,
+      value: val.toFixed(2) + '%',
+      valClass: val < 0 ? 'down' : 'up',
+      highlight: true
+    }));
+  }
+
+  const dates = [...new Set(full.map(d=>d.date))].sort((a,b)=>new Date(a)-new Date(b));
+  const endVal = document.getElementById('endDateInput').value;
+  let endIdx = dates.length - 1;
+  if (endVal) {
+    const t = new Date(endVal).getTime();
+    for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+  }
+
+  checked.forEach(chk => {
+    const attr = chk.dataset.days;
+    let startIdx = 0;
+
+    if (attr === 'all') {
+      startIdx = 0;
+    } else if (attr === 'thisYear') {
+      const currentMaxYear = new Date(dates[endIdx]).getFullYear();
+      startIdx = endIdx;
+      for (let i = endIdx; i >= 0; i--) {
+        if (new Date(dates[i]).getFullYear() < currentMaxYear) {
+          startIdx = i;
+          break;
+        }
+      }
+    } else if (attr === 'today') {
+      startIdx = Math.max(0, endIdx - 1);
+    } else {
+      startIdx = Math.max(0, endIdx - +attr);
+    }
+
+    const sd = dates[startIdx], ed = dates[endIdx];
+    const s = full.find(d => d.date === sd), e = full.find(d => d.date === ed);
+
+    if (s && e && maxAcc > 0) {
+      const val = ((s.accounts - e.accounts) * 100) / maxAcc;
+      let labelStr = attr === 'all' ? '전체 기간 매집률' : attr === 'thisYear' ? '올해 매집률' : attr === 'today' ? '오늘 매집률' : `${attr}일 매집률`;
+      list.appendChild(makeSummaryCard({
+        label: labelStr,
+        date: `${sd} ~ ${ed}`,
+        value: val.toFixed(2) + '%',
+        valClass: val < 0 ? 'down' : 'up'
+      }));
+    } else {
+      let labelStr = attr === 'all' ? '전체' : attr === 'thisYear' ? '올해' : attr === 'today' ? '오늘' : `${attr}일`;
+      list.appendChild(makeSummaryCard({ label: labelStr, date:'', value: '데이터 없음', valClass:'down' }));
+    }
+  });
+
+  container.classList.toggle('visible', checked.length > 0 || currentFilteredData.length > 0);
+}
+
+function makeSummaryCard({ label, date, value, valClass, highlight }) {
+  const div = document.createElement('div');
+  div.className = 'summary-card' + (highlight ? ' highlight' : '');
+  div.innerHTML = `
+    <div class="summary-card-label">${label}</div>
+    <div class="summary-card-date">${date}</div>
+    <div class="summary-card-value ${valClass}">${value}</div>`;
+  return div;
+}
+
+function exportToCSV() {
+  if (!currentFilteredData.length) return;
+  let csv = "일자,종목코드,종목명,현재가,보유계좌수\n";
+  currentFilteredData.forEach(r => csv += `"${r.date}","${r.code}","${r.name}","${r.price}","${r.accounts}"\n`);
+  const blob = new Blob([new Uint8Array([0xEF,0xBB,0xBF]), csv], { type:"text/csv;charset=utf-8;" });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `주식_${currentFilteredData[0].name}.csv`;
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// 탭 2: 종목 비교 테이블
+// ══════════════════════════════════════════════════════
+
+document.getElementById('addTableStockBtn').addEventListener('click', () => {
+  if (!allParsedData.length) { showMsg("먼저 CSV 파일을 업로드하세요.", true); return; }
+  const input = document.getElementById('globalSearchInput');
+  const code  = input.dataset.selectedCode || input.value.trim();
+  const start = document.getElementById('globalStartDate').value;
+  const end   = document.getElementById('globalEndDate').value;
+  if (!start || !end) { showMsg("비교 시작일과 종료일을 선택하세요.", true); return; }
+  if (new Date(start) > new Date(end)) { showMsg("시작일이 종료일보다 늦을 수 없습니다.", true); return; }
+  if (!code) { showMsg("추가할 종목을 검색하여 선택하세요.", true); return; }
+  if (!allParsedData.some(d => d.code === code)) { showMsg(`'${code}' 데이터가 없습니다.`, true); return; }
+  if (tableSelectedStocks.has(code)) { showMsg("이미 추가된 종목입니다.", true); return; }
+  tableSelectedStocks.add(code);
+  input.value = '';
+  input.dataset.selectedCode = '';
+  renderGlobalTable(); saveLocalStocks();
+});
+
+document.getElementById('clearTableBtn').addEventListener('click', () => {
+  tableSelectedStocks.clear(); expandedTableCharts.clear(); renderGlobalTable(); saveLocalStocks();
+});
+
+document.getElementById('resetSortBtn').addEventListener('click', () => {
+  if (!allParsedData.length || !tableSelectedStocks.size) return;
+  currentSortColumn = null; currentSortDirection = 'desc'; renderGlobalTable();
+});
+
+document.getElementById('batchStockFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  if (!allParsedData.length) { showMsg("메인 데이터를 먼저 업로드하세요.", true); this.value=''; return; }
+  Papa.parse(file, {
+    skipEmptyLines: true, encoding: "UTF-8",
+    complete(results) {
+      let added = 0, missing = 0;
+      results.data.slice(1).forEach(row => {
+        const code = (row[0]||'').replace(/['"]/g,'').trim();
+        if (!code) return;
+        if (allParsedData.some(d => d.code === code)) {
+          if (!tableSelectedStocks.has(code)) { tableSelectedStocks.add(code); added++; }
+        } else { missing++; }
+      });
+      if (added > 0) { renderGlobalTable(); saveLocalStocks(); showMsg(`${added}개 추가 완료 (누락: ${missing}건)`, false); }
+      else showMsg("추가할 종목이 없습니다.", true);
+      e.target.value = '';
+    },
+    error(err) { showMsg("파싱 오류: " + err.message, true); e.target.value = ''; }
+  });
+});
+
+document.getElementById('globalStartDate').addEventListener('change', () => { if (tableSelectedStocks.size > 0) renderGlobalTable(); });
+document.getElementById('globalEndDate').addEventListener('change',   () => { if (tableSelectedStocks.size > 0) renderGlobalTable(); });
+
+document.getElementById('thSortPeriod').addEventListener('click',  () => handleTableSort('accValueNum'));
+document.getElementById('thSortCurrent').addEventListener('click', () => handleTableSort('currentAccValueNum'));
+document.getElementById('thSortDaily').addEventListener('click',   () => handleTableSort('dailyAccValueNum'));
+
+function handleTableSort(col) {
+  currentSortDirection = currentSortColumn === col ? (currentSortDirection==='desc'?'asc':'desc') : 'desc';
+  currentSortColumn = col;
+  renderGlobalTable();
+}
+
+document.getElementById('globalTableBody').addEventListener('click', function(e) {
+  const cell = e.target.closest('.stock-name-cell');
+  if (cell) { toggleTableChart(cell.dataset.code); return; }
+  if (e.target.classList.contains('remove-stock-btn')) {
+    const code = e.target.dataset.code;
+    tableSelectedStocks.delete(code);
+    expandedTableCharts.delete(code);
+    if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
+    renderGlobalTable(); saveLocalStocks();
+  }
+});
+
+function toggleTableChart(code) {
+  const dataRow = document.querySelector(`.data-row[data-row-code="${code}"]`);
+  if (expandedTableCharts.has(code)) {
+    expandedTableCharts.delete(code);
+    const row = document.getElementById(`chart-row-${code}`);
+    if (row) row.style.display = 'none';
+    if (dataRow) dataRow.classList.remove('expanded');
+    if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
+  } else {
+    expandedTableCharts.add(code);
+    const row = document.getElementById(`chart-row-${code}`);
+    if (row) { row.style.display = ''; renderTableInlineChart(code); }
+    if (dataRow) dataRow.classList.add('expanded');
+  }
+}
+
+function renderTableInlineChart(code) {
+  const start = document.getElementById('globalStartDate').value;
+  const end   = document.getElementById('globalEndDate').value;
+  const validDates = [...new Set(allParsedData.map(d=>d.date))]
+    .filter(d => d >= start && d <= end)
+    .sort((a,b) => new Date(a)-new Date(b));
+  if (!validDates.length) return;
+
+  const s = validDates[0], e = validDates.at(-1);
+
+  // 1. 전체 데이터 추출 및 정렬
+  const fullData = allParsedData.filter(d => d.code === code);
+  fullData.sort((a,b) => new Date(a.date)-new Date(b.date));
+  
+  // 2. 파동 사전 계산
+  const fullWaveMarkers = calculateWaves(fullData);
+
+  // 3. 렌더링 데이터 필터링
+  let data = fullData.filter(d => d.date >= s && d.date <= e);
+  if (!data.length) return;
+
+  let canvas = document.getElementById(`table-chart-${code}`);
+  if (!canvas) return;
+  const existingInline = Chart.getChart(canvas);
+  if (existingInline) existingInline.destroy();
+  if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
+  // 캔버스 교체
+  const inlineParent = canvas.parentElement;
+  canvas.remove();
+  canvas = document.createElement('canvas');
+  canvas.id = `table-chart-${code}`;
+  inlineParent.appendChild(canvas);
+  _blockWheelScroll(canvas);
+
+  const priceData = data.map(d=>d.price);
+  const minP = Math.min(...priceData), maxP = Math.max(...priceData);
+  const range = maxP - minP;
+  const pad = range === 0 ? minP * .1 : range * .5;
+  
+  const hasOHLC = data.some(d => d.open != null && d.high != null && d.low != null);
+  const candleData = hasOHLC ? data.map(d => ({
+    x: d.date, o: d.open ?? d.price, h: d.high ?? d.price, l: d.low ?? d.price, c: d.price
+  })) : null;
+
+  // 4. 뷰포트 내 파동만 추출
+  const filteredWaveMarkers = data.map(d => {
+    const idx = fullData.findIndex(fd => fd.date === d.date);
+    return idx !== -1 ? fullWaveMarkers[idx] : null;
+  });
+
+  tableChartInstances[code] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: data.map(d=>d.date),
+      datasets: [
+        { 
+          label:'현재가', data: priceData, 
+          borderColor: hasOHLC ? 'rgba(0,0,0,0)' : '#e8a020', 
+          backgroundColor: hasOHLC ? 'rgba(0,0,0,0)' : 'rgba(232,160,32,0.1)', 
+          borderWidth: hasOHLC ? 0 : 1.5, 
+          pointRadius:0, pointHitRadius:5, pointHoverRadius: hasOHLC ? 0 : 4, 
+          fill: !hasOHLC, tension:0.2, yAxisID:'y' 
+        },
+        { 
+          label:'보유계좌수', data: data.map(d=>d.accounts), 
+          borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', 
+          borderWidth:1.5, pointRadius:0, pointHitRadius:5, pointHoverRadius:4, fill:false, tension:0.2, yAxisID:'y1' 
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      plugins: {
+        legend:{display:false},
+        tooltip: {
+          backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1,
+          callbacks: {
+            // 🔥 인라인 차트도 동일한 툴팁 포맷 적용 🔥
+            label: function(ctx) {
+              const dsLabel = ctx.dataset.label;
+              const val = ctx.parsed.y;
+              const idx = ctx.dataIndex;
+              
+              if (dsLabel.includes('현재가')) {
+                const d = data[idx];
+                if (d && d.high != null && d.low != null) {
+                  return [
+                    ` 시가 : ${(d.open ?? d.price).toLocaleString()}원`,
+                    ` 고가 : ${d.high.toLocaleString()}원`,
+                    ` 저가 : ${d.low.toLocaleString()}원`,
+                    ` 종가 : ${d.price.toLocaleString()}원`
+                  ];
+                }
+                return ` 현재가 : ${val != null ? val.toLocaleString() + '원' : '-'}`;
+              }
+              return ` ${dsLabel} : ${val != null ? val.toLocaleString() : '-'}`;
+            }
+          }
+        },
+        waveMarkers: filteredWaveMarkers,
+        zoom: _makeZoomOptions(code)
+      },
+      interaction: { mode: 'index', intersect: true },
+      scales: {
+        x: { 
+          offset: true, // 💡 [해결] 💡 인라인 차트도 가장자리 잘림 방지 여백 추가
+          grid:{color:'#2e2c29'}, 
+          ticks:{
+            maxTicksLimit: 5,
+            minRotation: 0, 
+            maxRotation: 0, 
+            autoSkip: true, 
+            autoSkipPadding: 30,
+            font:{size:10},
+            callback: function(val) {
+              const label = this.getLabelForValue(val);
+              if (!label) return '';
+              const p = label.split('-');
+              if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
+              return label;
+            }
+        }},
+        y: { position:'left', grid:{color:'#2e2c29'}, suggestedMin:Math.max(0,minP-pad), suggestedMax:maxP+pad, ticks:{font:{size:10},callback:v=>v.toLocaleString()} },
+        y1:{ position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:10},callback:v=>v.toLocaleString()} }
+      }
+    },
+    plugins: [waveDrawerPlugin, candlestickPlugin] // 인라인 차트에도 봉차트 플러그인 적용
+  });
+
+  if (hasOHLC) {
+    tableChartInstances[code]._candleData = candleData;
+  }
+}
+
+function renderGlobalTable() {
+  const start = document.getElementById('globalStartDate').value;
+  const end   = document.getElementById('globalEndDate').value;
+  const tbody = document.getElementById('globalTableBody');
+
+  Object.values(tableChartInstances).forEach(c => c.destroy());
+  tableChartInstances = {};
+
+  if (!tableSelectedStocks.size) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="10">날짜를 지정하고 종목코드를 추가하여 비교를 시작하세요.</td></tr>`;
+    ['thStartLabel','thEndLabel'].forEach(id => document.getElementById(id).textContent = id==='thStartLabel'?'시작일':'종료일');
+    document.getElementById('thIntervalLabel').textContent = '';
+    return;
+  }
+
+  const validDates = [...new Set(allParsedData.map(d=>d.date))]
+    .filter(d => d >= start && d <= end)
+    .sort((a,b) => new Date(a)-new Date(b));
+
+  if (!validDates.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="10" style="color:var(--red)">지정 기간 내 유효한 영업일 데이터가 없습니다.</td></tr>`;
+    document.getElementById('thStartLabel').textContent = start;
+    document.getElementById('thEndLabel').textContent = end;
+    document.getElementById('thIntervalLabel').textContent = '';
+    return;
+  }
+
+  const actualStart = validDates[0], actualEnd = validDates.at(-1);
+  const intervalDays = Math.max(0, validDates.length - 1);
+
+  document.getElementById('thStartLabel').textContent = actualStart;
+  document.getElementById('thEndLabel').textContent = actualEnd;
+  document.getElementById('thIntervalLabel').textContent = `(${intervalDays}일)`;
+  tbody.innerHTML = '';
+
+  const icon = dir => dir === 'desc' ? '▼' : '▲';
+  document.getElementById('iconSortPeriod').textContent  = currentSortColumn==='accValueNum'      ? icon(currentSortDirection) : '';
+  document.getElementById('iconSortCurrent').textContent = currentSortColumn==='currentAccValueNum'? icon(currentSortDirection) : '';
+  document.getElementById('iconSortDaily').textContent   = currentSortColumn==='dailyAccValueNum'  ? icon(currentSortDirection) : '';
+
+  document.getElementById('thSortPeriod').className  = 'num sortable' + (currentSortColumn==='accValueNum'?       ' sort-active':'');
+  document.getElementById('thSortCurrent').className = 'num sortable' + (currentSortColumn==='currentAccValueNum'?' sort-active':'');
+  document.getElementById('thSortDaily').className   = 'num sortable' + (currentSortColumn==='dailyAccValueNum'?  ' sort-active-purple':'');
+
+  const rows = [];
+  tableSelectedStocks.forEach(code => {
+    const records = allParsedData.filter(d => d.code === code);
+    if (!records.length) return;
+    const name   = stockIndex.get(code)?.recentName || records[0].name;
+    const minAcc = records.reduce((m,d) => d.accounts<m?d.accounts:m, records[0].accounts);
+    const maxAcc = records.reduce((m,d) => d.accounts>m?d.accounts:m, 0);
+    const startR = records.find(d => d.date === actualStart);
+    const endR   = records.find(d => d.date === actualEnd);
+
+    let accValueNum = -Infinity, currentAccValueNum = -Infinity, dailyAccValueNum = -Infinity;
+    let accStr = '-', curStr = '-', dailyStr = '-', accClass = '', dailyClass = '';
+
+    if (endR && maxAcc > 0) {
+      currentAccValueNum = ((maxAcc - endR.accounts) * 100) / maxAcc;
+      curStr = currentAccValueNum.toFixed(0);
+    }
+    if (startR && endR && maxAcc > 0) {
+      accValueNum = ((startR.accounts - endR.accounts) * 100) / maxAcc;
+      accStr = accValueNum.toFixed(2);
+      accClass = accValueNum < 0 ? 'val-down' : 'val-up';
+      if (intervalDays > 0) {
+        dailyAccValueNum = accValueNum / intervalDays;
+        dailyStr = dailyAccValueNum.toFixed(2);
+        dailyClass = dailyAccValueNum < 0 ? 'val-purple-down' : 'val-purple';
+      } else {
+        dailyStr = '#DIV/0!'; dailyClass = 'val-down';
+      }
+    }
+
+    rows.push({ code, name, minAcc, maxAcc,
+      startAccStr: startR ? startR.accounts.toLocaleString() : '-',
+      endAccStr:   endR   ? endR.accounts.toLocaleString()   : '-',
+      accStr, curStr, dailyStr, accClass, dailyClass,
+      accValueNum, currentAccValueNum, dailyAccValueNum });
+  });
+
+  if (currentSortColumn) {
+    rows.sort((a,b) => currentSortDirection==='desc' ? b[currentSortColumn]-a[currentSortColumn] : a[currentSortColumn]-b[currentSortColumn]);
+  }
+
+  const frag = document.createDocumentFragment();
+  rows.forEach((r, i) => {
+    const isExp = expandedTableCharts.has(r.code);
+    const tr = document.createElement('tr');
+    tr.className = 'data-row' + (isExp ? ' expanded' : '');
+    tr.dataset.rowCode = r.code;
+    tr.innerHTML = `
+      <td class="center hide-mobile" data-label="#" style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${i+1}</td>
+      <td class="stock-name-cell" data-label="종목명" data-code="${r.code}" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="stock-name-toggle">▶</span>
+          <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;">${r.code}</span>
+          <span style="color:var(--blue);font-weight:600;font-size:14px">${r.name}</span>
+        </div>
+      </td>
+      <td class="num" data-label="최소 계좌수" style="color:var(--text2)">${r.minAcc.toLocaleString()}</td>
+      <td class="num" data-label="최대 계좌수" style="font-weight:600">${r.maxAcc.toLocaleString()}</td>
+      <td class="num" data-label="${actualStart} 계좌수" style="color:var(--text2)">${r.startAccStr}</td>
+      <td class="num" data-label="${actualEnd} 계좌수" style="color:var(--text2)">${r.endAccStr}</td>
+      <td class="num ${r.accClass}" data-label="기간 매집(%)">${r.accStr}</td>
+      <td class="num" data-label="현 매집(%)" style="font-weight:600">${r.curStr}</td>
+      <td class="num ${r.dailyClass}" data-label="일 매집률">${r.dailyStr}</td>
+      <td class="center manage-cell" data-label="관리">
+        <button class="btn btn-sm remove-stock-btn" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(248,81,73,.3)" data-code="${r.code}">삭제</button>
+      </td>`;
+    frag.appendChild(tr);
+
+    const chartTr = document.createElement('tr');
+    chartTr.id = `chart-row-${r.code}`;
+    chartTr.className = 'chart-row';
+    chartTr.style.display = isExp ? '' : 'none';
+    chartTr.innerHTML = `
+      <td colspan="10" class="chart-td">
+        <div class="chart-row-inner">
+          <div class="chart-reset-overlay" id="reset-overlay-${r.code}">
+            <button onclick="resetTableChart('${r.code}')">↺ 초기화</button>
+          </div>
+          <canvas id="table-chart-${r.code}"></canvas>
+        </div>
+      </td>`;
+    frag.appendChild(chartTr);
+  });
+
+  tbody.appendChild(frag);
+  expandedTableCharts.forEach(code => renderTableInlineChart(code));
+}
+</script>
+</body>
+</html>
