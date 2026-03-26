@@ -1040,7 +1040,7 @@ Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans KR', sans-serif";
 const candlestickPlugin = {
   id: 'candlestickPlugin',
   afterDatasetsDraw(chart) {
-    const ohlcData = chart._candleData;
+    const ohlcData = chart.config?.options?.plugins?.candleData || chart._candleData;
     if (!ohlcData || !ohlcData.length) return;
 
     const ctx    = chart.ctx;
@@ -1845,8 +1845,9 @@ function autoScaleY(chart) {
     });
   });
 
-  if (chart._candleData) {
-    chart._candleData.forEach((d, i) => {
+  const _cd1 = chart.config?.options?.plugins?.candleData || chart._candleData;
+  if (_cd1) {
+    _cd1.forEach((d, i) => {
       if (!d || i < xMin - 1 || i > xMax + 1) return;
       if (d.h != null) visiblePrices.push(d.h);
       if (d.l != null) visiblePrices.push(d.l);
@@ -1886,8 +1887,9 @@ function resetYScale(chart) {
   const ds1 = chart.data.datasets[1];
   if (ds0) ds0.data.forEach(v => { if (v != null) allPrices.push(v); });
   if (ds1) ds1.data.forEach(v => { if (v != null) allAccounts.push(v); });
-  if (chart._candleData) {
-    chart._candleData.forEach(d => {
+  const _cd2 = chart.config?.options?.plugins?.candleData || chart._candleData;
+  if (_cd2) {
+    _cd2.forEach(d => {
       if (!d) return;
       if (d.h != null) allPrices.push(d.h);
       if (d.l != null) allPrices.push(d.l);
@@ -2303,7 +2305,8 @@ function renderMainChart(data, accountsData, waveMarkers) {
             }
           }
         },
-        legend: { display: false }
+        legend: { display: false },
+        candleData: hasOHLC ? candleData : null  // 차트 생성 시점에 미리 포함
       },
       // 5px 이내에서만 작동하며 중복 출력을 방지하는 index 모드 강제
       interaction: { mode: 'index', intersect: true },
