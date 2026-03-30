@@ -1001,20 +1001,6 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 // ══════════════════════════════════════════════════════
 // CSV 파싱 헬퍼: 헤더에서 high/low 인덱스 동적 감지
 // ══════════════════════════════════════════════════════
-function detectHLIndex(headerRow) {
-  const h = headerRow.map(c => (c||'').toString().trim().toLowerCase());
-  const hiIdx = h.findIndex(c => c === 'high' || c === '고가' || c === '최고가');
-  const loIdx = h.findIndex(c => c === 'low'  || c === '저가' || c === '최저가');
-  return { hiIdx, loIdx };
-}
-function parseHL(row, hiIdx, loIdx) {
-  const parseN = (v) => { const n = parseInt((v||'0').toString().replace(/,/g,''),10); return isNaN(n)||n===0 ? null : n; };
-  return {
-    high: hiIdx >= 0 && row.length > hiIdx ? parseN(row[hiIdx]) : null,
-    low:  loIdx >= 0 && row.length > loIdx ? parseN(row[loIdx]) : null,
-  };
-}
-
 // ══════════════════════════════════════════════════════
 // 전역 상태
 // ══════════════════════════════════════════════════════
@@ -1037,7 +1023,7 @@ Chart.defaults.color = '#9d9a93';
 Chart.defaults.borderColor = '#2e2c29';
 Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans KR', sans-serif";
 
-// ── 봉차트 커스텀 플러그인 (🔥 트레이딩뷰 줌 완벽 동기화 로직 적용 🔥) ──────────────────────────
+// ── 봉차트 커스텀 플러그인 ──────────────────────────
 const candlestickPlugin = {
   id: 'candlestickPlugin',
   afterDatasetsDraw(chart) {
@@ -1750,7 +1736,13 @@ function hideMsg() { document.getElementById('msgBar').className = 'msg-bar'; }
 
 // PC: 차트 캔버스 마우스 휠로 페이지 스크롤 방지
 function _blockWheelScroll(canvas) {
-  canvas.addEventListener('wheel', e => { e.preventDefault(); }, { passive: false });
+  let _isHover = false;
+  canvas.addEventListener('mouseenter', () => { _isHover = true; });
+  canvas.addEventListener('mouseleave', () => { _isHover = false; });
+  // 마우스가 캔버스 위에 있을 때만 스크롤 차단 (페이지 스크롤 방지)
+  canvas.addEventListener('wheel', e => {
+    if (_isHover) e.preventDefault();
+  }, { passive: false });
 }
 
 // 터치 기기 여부 감지
@@ -1815,7 +1807,6 @@ function resetTableChart(code) {
 function autoScaleY(chart) {
   const xScale = chart.scales.x;
   const yScale = chart.scales.y;
-  const y1Scale = chart.scales.y1;
   if (!xScale || !yScale) return;
 
   const xMin = xScale.min;
@@ -1830,21 +1821,14 @@ function autoScaleY(chart) {
     return;
   }
 
-  const datasets = chart.data.datasets;
+  // 보이는 x 범위의 가격 데이터 수집 (y축 재계산용)
+  const priceDs = chart.data.datasets[0];
   let visiblePrices = [];
-  let visibleAccounts = [];
-
-  datasets.forEach((ds, di) => {
-    const meta = chart.getDatasetMeta(di);
-    if (!meta || meta.hidden) return;
-    ds.data.forEach((val, i) => {
-      if (i < xMin - 1 || i > xMax + 1) return;
-      if (val != null) {
-        if (di === 0) visiblePrices.push(val);
-        if (di === 1) visibleAccounts.push(val);
-      }
+  if (priceDs) {
+    priceDs.data.forEach((val, i) => {
+      if (i >= xMin - 1 && i <= xMax + 1 && val != null) visiblePrices.push(val);
     });
-  });
+  }
 
   if (_globalCandleData) {
     _globalCandleData.forEach((d, i) => {
@@ -1863,30 +1847,19 @@ function autoScaleY(chart) {
     yScale.options.max = maxP + pad;
   }
 
-  if (y1Scale && visibleAccounts.length > 0) {
-    const minA = Math.min(...visibleAccounts);
-    const maxA = Math.max(...visibleAccounts);
-    const padA = (maxA - minA) * 0.08 || minA * 0.05;
-    y1Scale.options.min = Math.max(0, minA - padA);
-    y1Scale.options.max = maxA + padA;
-  }
-
+  // y1축(보유계좌수)은 항상 전체 범위 고정 — 줌해도 변경 안 함
   chart.update('none');
 }
 
 // 원본 y축 범위 복원용
 function resetYScale(chart) {
   const yScale  = chart.scales.y;
-  const y1Scale = chart.scales.y1;
   if (!yScale) return;
 
-  // 전체 데이터 기준 원본 범위 재계산
+  // 전체 데이터 기준 y축 원본 범위 재계산
   const allPrices = [];
-  const allAccounts = [];
   const ds0 = chart.data.datasets[0];
-  const ds1 = chart.data.datasets[1];
   if (ds0) ds0.data.forEach(v => { if (v != null) allPrices.push(v); });
-  if (ds1) ds1.data.forEach(v => { if (v != null) allAccounts.push(v); });
   if (_globalCandleData) {
     _globalCandleData.forEach(d => {
       if (!d) return;
@@ -1907,16 +1880,7 @@ function resetYScale(chart) {
     yScale.update();
   }
 
-  if (y1Scale && allAccounts.length > 0) {
-    y1Scale.options.min         = undefined;
-    y1Scale.options.max         = undefined;
-    const minA = Math.min(...allAccounts);
-    const maxA = Math.max(...allAccounts);
-    const padA = (maxA - minA) * 0.5 || minA * 0.1;
-    y1Scale.options.suggestedMin = Math.max(0, minA - padA);
-    y1Scale.options.suggestedMax = maxA + padA;
-    y1Scale.update();
-  }
+  // y1축은 차트 생성 시 min/max 고정값으로 세팅했으므로 여기서 건드리지 않음
 }
 
 function calculateWaves(data) {
@@ -2214,11 +2178,20 @@ function renderMainChart(data, accountsData, waveMarkers) {
   const priceData = data.map(d => d.price);
   
   // OHLC 데이터 유무 검사 (일부만 있어도 봉차트 모드로 진입)
-  const hasOHLC  = data.some(d => d.open != null && d.high != null && d.low != null);
+  // open 없어도 high+low만 있으면 봉차트 (open은 price로 대체)
+  const hasOHLC  = data.some(d => d.high != null && d.low != null);
 
   const minP = Math.min(...priceData), maxP = Math.max(...priceData);
   const range = maxP - minP;
   const pad = range === 0 ? minP * 0.1 : range * 0.5;
+
+  // y1축 고정 범위 계산 (전체 데이터 기준, 줌해도 절대 변하지 않음)
+  const allAccounts = accountsData.filter(v => v != null);
+  const minA = allAccounts.length ? Math.min(...allAccounts) : 0;
+  const maxA = allAccounts.length ? Math.max(...allAccounts) : 1;
+  const padA = (maxA - minA) * 0.5 || minA * 0.1;
+  const y1Min = Math.max(0, minA - padA);
+  const y1Max = maxA + padA;
 
   // 봉차트 데이터 생성 (값이 없으면 종가로 대체하여 선형태로라도 보존)
   const candleData = hasOHLC ? data.map(d => ({
@@ -2238,6 +2211,9 @@ function renderMainChart(data, accountsData, waveMarkers) {
     pointRadius: 0, pointHitRadius: 5, pointHoverRadius: hasOHLC ? 0 : 4,
     fill: !hasOHLC, tension: 0.2, yAxisID: 'y'
   };
+
+  // ★ new Chart() 이전에 반드시 설정 (첫 렌더링 시 플러그인이 바로 읽어야 함)
+  _globalCandleData = hasOHLC ? candleData : null;
 
   combinedChartInstance = new Chart(ctx, {
     type: 'line',
@@ -2259,21 +2235,28 @@ function renderMainChart(data, accountsData, waveMarkers) {
         zoom: {
           pan: {
             enabled: true, mode: 'x',
-            onPan: function({ chart }) {
-              document.getElementById('resetZoomBtn').style.display = 'inline-flex';
-              autoScaleY(chart);
-            },
-            onPanComplete: function({ chart }) { autoScaleY(chart); }
+            threshold: 10,  // 10px 이상 드래그해야 pan 인식 (스크롤 오작동 방지)
+            onPanComplete: function({ chart }) {
+              const xScale = chart.scales.x;
+              const total = (chart.data.datasets[0]?.data?.length ?? 0) - 1;
+              if (xScale.min > 0 || xScale.max < total) {
+                document.getElementById('resetZoomBtn').style.display = 'inline-flex';
+                autoScaleY(chart);
+              } else {
+                resetYScale(chart);
+                chart.update('none');
+              }
+            }
           },
           zoom: {
             wheel: { enabled: true, speed: 0.1 },
-            pinch: { enabled: true },
-            mode: 'x',
-            onZoom: function({ chart }) {
+            pinch:  { enabled: true },
+            mode:   'x',
+            onZoom({ chart }) {
               document.getElementById('resetZoomBtn').style.display = 'inline-flex';
               autoScaleY(chart);
             },
-            onZoomComplete: function({ chart }) { autoScaleY(chart); }
+            onZoomComplete({ chart }) { autoScaleY(chart); }
           },
           limits: { x: { minRange: 5 } }
         },
@@ -2357,6 +2340,7 @@ function renderMainChart(data, accountsData, waveMarkers) {
         },
         y1: {
           type: 'linear', position: 'right',
+          min: y1Min, max: y1Max,  // 고정값 — 줌/패닝해도 절대 변하지 않음
           title: { display: true, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } },
           grid: { drawOnChartArea: false },
           ticks: { callback: v => v.toLocaleString() }
@@ -2366,9 +2350,7 @@ function renderMainChart(data, accountsData, waveMarkers) {
     plugins: [candlestickPlugin, waveDrawerPlugin]
   });
   
-  _globalCandleData = hasOHLC ? candleData : null;
 }
-
 
 function updateCheckboxSummaries() {
   const input = document.getElementById('searchInput');
