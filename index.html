@@ -1001,20 +1001,6 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
 // ══════════════════════════════════════════════════════
 // CSV 파싱 헬퍼: 헤더에서 high/low 인덱스 동적 감지
 // ══════════════════════════════════════════════════════
-function detectHLIndex(headerRow) {
-  const h = headerRow.map(c => (c||'').toString().trim().toLowerCase());
-  const hiIdx = h.findIndex(c => c === 'high' || c === '고가' || c === '최고가');
-  const loIdx = h.findIndex(c => c === 'low'  || c === '저가' || c === '최저가');
-  return { hiIdx, loIdx };
-}
-function parseHL(row, hiIdx, loIdx) {
-  const parseN = (v) => { const n = parseInt((v||'0').toString().replace(/,/g,''),10); return isNaN(n)||n===0 ? null : n; };
-  return {
-    high: hiIdx >= 0 && row.length > hiIdx ? parseN(row[hiIdx]) : null,
-    low:  loIdx >= 0 && row.length > loIdx ? parseN(row[loIdx]) : null,
-  };
-}
-
 // ══════════════════════════════════════════════════════
 // 전역 상태
 // ══════════════════════════════════════════════════════
@@ -1037,7 +1023,7 @@ Chart.defaults.color = '#9d9a93';
 Chart.defaults.borderColor = '#2e2c29';
 Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans KR', sans-serif";
 
-// ── 봉차트 커스텀 플러그인 (🔥 트레이딩뷰 줌 완벽 동기화 로직 적용 🔥) ──────────────────────────
+// ── 봉차트 커스텀 플러그인 ──────────────────────────
 const candlestickPlugin = {
   id: 'candlestickPlugin',
   afterDatasetsDraw(chart) {
@@ -1821,7 +1807,6 @@ function resetTableChart(code) {
 function autoScaleY(chart) {
   const xScale = chart.scales.x;
   const yScale = chart.scales.y;
-  const y1Scale = chart.scales.y1;
   if (!xScale || !yScale) return;
 
   const xMin = xScale.min;
@@ -1836,21 +1821,14 @@ function autoScaleY(chart) {
     return;
   }
 
-  const datasets = chart.data.datasets;
+  // 보이는 x 범위의 가격 데이터 수집 (y축 재계산용)
+  const priceDs = chart.data.datasets[0];
   let visiblePrices = [];
-  let visibleAccounts = [];
-
-  datasets.forEach((ds, di) => {
-    const meta = chart.getDatasetMeta(di);
-    if (!meta || meta.hidden) return;
-    ds.data.forEach((val, i) => {
-      if (i < xMin - 1 || i > xMax + 1) return;
-      if (val != null) {
-        if (di === 0) visiblePrices.push(val);
-        if (di === 1) visibleAccounts.push(val);
-      }
+  if (priceDs) {
+    priceDs.data.forEach((val, i) => {
+      if (i >= xMin - 1 && i <= xMax + 1 && val != null) visiblePrices.push(val);
     });
-  });
+  }
 
   if (_globalCandleData) {
     _globalCandleData.forEach((d, i) => {
@@ -1876,16 +1854,12 @@ function autoScaleY(chart) {
 // 원본 y축 범위 복원용
 function resetYScale(chart) {
   const yScale  = chart.scales.y;
-  const y1Scale = chart.scales.y1;
   if (!yScale) return;
 
-  // 전체 데이터 기준 원본 범위 재계산
+  // 전체 데이터 기준 y축 원본 범위 재계산
   const allPrices = [];
-  const allAccounts = [];
   const ds0 = chart.data.datasets[0];
-  const ds1 = chart.data.datasets[1];
   if (ds0) ds0.data.forEach(v => { if (v != null) allPrices.push(v); });
-  if (ds1) ds1.data.forEach(v => { if (v != null) allAccounts.push(v); });
   if (_globalCandleData) {
     _globalCandleData.forEach(d => {
       if (!d) return;
@@ -2377,7 +2351,6 @@ function renderMainChart(data, accountsData, waveMarkers) {
   });
   
 }
-
 
 function updateCheckboxSummaries() {
   const input = document.getElementById('searchInput');
