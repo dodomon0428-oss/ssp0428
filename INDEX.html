@@ -1027,6 +1027,8 @@ Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans KR', sans-serif";
 const candlestickPlugin = {
   id: 'candlestickPlugin',
   afterDatasetsDraw(chart) {
+    // 메인 차트만 봉차트 적용 (인라인 차트는 _isCandleChart 플래그로 구분)
+    if (!chart._isCandleChart) return;
     const ohlcData = _globalCandleData;
     if (!ohlcData || !ohlcData.length) return;
 
@@ -2349,7 +2351,7 @@ function renderMainChart(data, accountsData, waveMarkers) {
     },
     plugins: [candlestickPlugin, waveDrawerPlugin]
   });
-  
+  if (hasOHLC) combinedChartInstance._isCandleChart = true;
 }
 
 function updateCheckboxSummaries() {
@@ -2677,7 +2679,7 @@ function renderTableInlineChart(code) {
         y1:{ position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:10},callback:v=>v.toLocaleString()} }
       }
     },
-    plugins: [waveDrawerPlugin, candlestickPlugin] // 인라인 차트에도 봉차트 플러그인 적용
+    plugins: [waveDrawerPlugin] // 인라인 차트는 선차트만
   });
 
   if (hasOHLC) {
