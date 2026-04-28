@@ -902,7 +902,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="summary-box" id="summaryContainer">
     <div class="summary-header">
       <span class="summary-header-title">📊 기간 매집 요약 지표</span>
-      <span class="summary-max">전체 기간 최대 보유계좌수: <b id="summaryMaxAccounts">-</b> 계좌</span>
+      <span class="summary-max">전체 기간 최대 보유계좌수: <b id="summaryMaxAccounts">-</b> 계좌 <span id="summaryMaxAccDate" style="font-size:11px;color:var(--text3);margin-left:4px;"></span></span>
     </div>
     <div class="summary-grid" id="summaryMetricsList"></div>
   </div>
@@ -2365,17 +2365,22 @@ function updateCheckboxSummaries() {
   if (!full.length) return;
 
   const maxAcc = full.reduce((m,d) => d.accounts > m ? d.accounts : m, 0);
+  const maxAccDay = full.find(d => d.accounts === maxAcc);
   document.getElementById('summaryMaxAccounts').textContent = maxAcc.toLocaleString();
+  const maxAccDateEl = document.getElementById('summaryMaxAccDate');
+  if (maxAccDateEl) maxAccDateEl.textContent = maxAccDay ? `(${maxAccDay.date})` : '';
   list.innerHTML = '';
 
   if (currentFilteredData.length && maxAcc > 0) {
     const s = currentFilteredData[0], e = currentFilteredData.at(-1);
     const val = ((s.accounts - e.accounts) * 100) / maxAcc;
     const days = Math.max(0, currentFilteredData.length - 1);
+    const dailyRate = days > 0 ? val / days : 0;
     list.appendChild(makeSummaryCard({
       label: `달력 지정 기간 매집률 (${days}영업일)`,
       date: `${s.date} ~ ${e.date}`,
       value: val.toFixed(2) + '%',
+      subValue: `일 매집률 ${dailyRate >= 0 ? '+' : ''}${dailyRate.toFixed(2)}%`,
       valClass: val < 0 ? 'down' : 'up',
       highlight: true
     }));
@@ -2431,13 +2436,14 @@ function updateCheckboxSummaries() {
   container.classList.toggle('visible', checked.length > 0 || currentFilteredData.length > 0);
 }
 
-function makeSummaryCard({ label, date, value, valClass, highlight }) {
+function makeSummaryCard({ label, date, value, valClass, highlight, subValue }) {
   const div = document.createElement('div');
   div.className = 'summary-card' + (highlight ? ' highlight' : '');
   div.innerHTML = `
     <div class="summary-card-label">${label}</div>
     <div class="summary-card-date">${date}</div>
-    <div class="summary-card-value ${valClass}">${value}</div>`;
+    <div class="summary-card-value ${valClass}">${value}</div>
+    ${subValue ? `<div style="font-size:11px;color:var(--text2);margin-top:4px;">${subValue}</div>` : ''}`;
   return div;
 }
 
