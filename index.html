@@ -2610,11 +2610,11 @@ function renderTableInlineChart(code) {
       datasets: [
         { 
           label:'현재가', data: priceData, 
-          borderColor: hasOHLC ? 'rgba(0,0,0,0)' : '#e8a020', 
-          backgroundColor: hasOHLC ? 'rgba(0,0,0,0)' : 'rgba(232,160,32,0.1)', 
-          borderWidth: hasOHLC ? 0 : 1.5, 
-          pointRadius:0, pointHitRadius:5, pointHoverRadius: hasOHLC ? 0 : 4, 
-          fill: !hasOHLC, tension:0.2, yAxisID:'y' 
+          borderColor: '#e8a020', 
+          backgroundColor: 'rgba(232,160,32,0.1)', 
+          borderWidth: 1.5, 
+          pointRadius:0, pointHitRadius:5, pointHoverRadius:4, 
+          fill: true, tension:0.2, yAxisID:'y' 
         },
         { 
           label:'보유계좌수', data: data.map(d=>d.accounts), 
