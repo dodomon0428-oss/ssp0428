@@ -292,6 +292,19 @@ input[type="number"] { width: 72px; text-align: center; }
   border-radius: 20px; padding: 5px 12px; height: 26px; font-size: 12px;
 }
 
+/* 활성 상태 표시 — 차트뷰/테이블뷰 모두 동일한 시각 피드백 */
+.period-btn.active { color: var(--blue); font-weight: 700; }
+.period-wrapper:has(.period-btn.active) {
+  background: var(--blue-dim);
+  border-color: var(--blue);
+}
+.global-period-btn.active {
+  background: var(--blue-dim);
+  border-color: var(--blue);
+  color: var(--blue);
+  font-weight: 700;
+}
+
 /* ── 탭 1: 차트 뷰 ───────────────────────────── */
 .chart-controls {
   display: flex;
@@ -880,7 +893,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
     </div>
 
     <div class="chart-hint">
-      💡 차트의 점을 연속 클릭하면 시작일/종료일을 빠르게 지정할 수 있습니다.
+      💡 <b style="color:var(--text2);font-weight:600">텍스트</b> 클릭 = 차트 기간 적용 · <b style="color:var(--text2);font-weight:600">체크박스</b> = 요약 카드 추가 · 차트의 점을 연속 클릭하면 시작일/종료일을 빠르게 지정할 수 있습니다.
     </div>
   </div>
 
@@ -976,14 +989,14 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
         <thead>
           <tr>
             <th style="width:28px" class="center">#</th>
-            <th>종목명</th>
-            <th class="num">최소 계좌수</th>
-            <th class="num">최대 계좌수</th>
-            <th class="num"><span id="thStartLabel">시작일</span> 계좌수</th>
-            <th class="num"><span id="thEndLabel">종료일</span> 계좌수</th>
-            <th class="num sortable sort-active" id="thSortPeriod">기간 매집(%) <span id="iconSortPeriod"></span></th>
-            <th class="num sortable" id="thSortCurrent">현 매집(%) <span id="iconSortCurrent"></span></th>
-            <th class="num sortable sort-active-purple" id="thSortDaily">일 매집률 <span id="thIntervalLabel"></span> <span id="iconSortDaily"></span></th>
+            <th title="종목명을 클릭하면 인라인 차트가 펼쳐집니다">종목명</th>
+            <th class="num" title="전체 기간 중 가장 적었던 보유계좌수">최소 계좌수</th>
+            <th class="num" title="전체 기간 중 가장 많았던 보유계좌수 (매집률 계산의 분모)">최대 계좌수</th>
+            <th class="num" title="비교 시작일의 보유계좌수"><span id="thStartLabel">시작일</span> 계좌수</th>
+            <th class="num" title="비교 종료일의 보유계좌수"><span id="thEndLabel">종료일</span> 계좌수</th>
+            <th class="num sortable sort-active" id="thSortPeriod" title="(시작일 계좌수 − 종료일 계좌수) ÷ 최대 계좌수 × 100&#10;양수면 매집(계좌 감소), 음수면 분산(계좌 증가)&#10;클릭으로 정렬">기간 매집(%) <span id="iconSortPeriod"></span></th>
+            <th class="num sortable" id="thSortCurrent" title="(최대 계좌수 − 종료일 계좌수) ÷ 최대 계좌수 × 100&#10;최대 계좌수 대비 현재 줄어든 비율 (높을수록 매집 진행)&#10;클릭으로 정렬">현 매집(%) <span id="iconSortCurrent"></span></th>
+            <th class="num sortable sort-active-purple" id="thSortDaily" title="기간 매집(%) ÷ 영업일수&#10;하루 평균 매집 진행률&#10;클릭으로 정렬">일 매집률 <span id="thIntervalLabel"></span> <span id="iconSortDaily"></span></th>
             <th class="center" style="width:64px">관리</th>
           </tr>
         </thead>
@@ -1017,6 +1030,22 @@ let tableChartInstances = {};
 
 // 종목 인덱스: 코드 → { recentName, allNames: Set, recentDate }
 let stockIndex = new Map();
+// 종목별 행 인덱스: 코드 → 날짜순 정렬된 rows[]
+let stockByCode = new Map();
+// 정렬된 유니크 날짜 배열 (allParsedData 로드/변경 시 1회 계산)
+let allDates = [];
+
+// 큰 배열에서 안전한 min/max (Math.min(...arr)는 스택 오버플로 위험)
+function arrMin(arr) {
+  let m = Infinity;
+  for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (v != null && v < m) m = v; }
+  return m === Infinity ? 0 : m;
+}
+function arrMax(arr) {
+  let m = -Infinity;
+  for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (v != null && v > m) m = v; }
+  return m === -Infinity ? 0 : m;
+}
 
 // Chart.js 전역 기본값
 Chart.defaults.color = '#9d9a93';
@@ -1323,6 +1352,9 @@ document.getElementById('clearCacheBtn').addEventListener('click', async () => {
   await idbDelete(STORE_META, 'meta');
   allParsedData = [];
   currentFilteredData = [];
+  stockByCode.clear();
+  stockIndex.clear();
+  allDates = [];
   hideCacheBadge();
   document.getElementById('uploadDot').classList.remove('ok');
   document.getElementById('uploadStatus').textContent = '파일을 업로드하세요 (UTF-8)';
@@ -1353,10 +1385,9 @@ function autoSetTableDatesIfEmpty() {
     if (tableSelectedStocks.size > 0) renderGlobalTable();
     return;
   }
-  const dates = [...new Set(allParsedData.map(d => d.date))].sort((a,b) => a < b ? -1 : 1);
-  if (!dates.length) return;
-  endEl.value   = dates.at(-1);
-  startEl.value = dates[0];
+  if (!allDates.length) return;
+  endEl.value   = allDates.at(-1);
+  startEl.value = allDates[0];
   document.querySelectorAll('.global-period-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.days === 'all');
   });
@@ -1368,8 +1399,11 @@ function autoSetTableDatesIfEmpty() {
 // ══════════════════════════════════════════════════════
 function buildStockIndex() {
   stockIndex.clear();
-  const sorted = [...allParsedData].sort((a,b) => a.date < b.date ? -1 : 1);
-  for (const row of sorted) {
+  stockByCode.clear();
+  // ISO 날짜 문자열은 사전순 = 시간순이므로 new Date() 불필요
+  allParsedData.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const dateSet = new Set();
+  for (const row of allParsedData) {
     if (!stockIndex.has(row.code)) {
       stockIndex.set(row.code, { recentName: row.name, allNames: new Set([row.name]) });
     } else {
@@ -1377,7 +1411,12 @@ function buildStockIndex() {
       entry.allNames.add(row.name);
       entry.recentName = row.name;
     }
+    let bucket = stockByCode.get(row.code);
+    if (!bucket) { bucket = []; stockByCode.set(row.code, bucket); }
+    bucket.push(row);
+    dateSet.add(row.date);
   }
+  allDates = [...dateSet].sort();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1805,6 +1844,121 @@ function resetTableChart(code) {
   document.getElementById('reset-overlay-' + code)?.classList.remove('visible');
 }
 
+// ══════════════════════════════════════════════════════
+// 차트 빌더 공통 헬퍼
+// ══════════════════════════════════════════════════════
+
+// 캔버스를 파괴 후 동일 ID로 새로 생성 (Chart.js 재초기화 안정화)
+function recreateCanvas(canvas) {
+  const existing = Chart.getChart(canvas);
+  if (existing) existing.destroy();
+  const id = canvas.id;
+  const parent = canvas.parentElement;
+  canvas.remove();
+  const newCanvas = document.createElement('canvas');
+  newCanvas.id = id;
+  parent.appendChild(newCanvas);
+  _blockWheelScroll(newCanvas);
+  return newCanvas;
+}
+
+// 가격 툴팁 콜백 — getRowAtIdx(idx)로 OHLC 정보 접근
+function makePriceTooltipLabel(getRowAtIdx) {
+  return function(ctx) {
+    const dsLabel = ctx.dataset.label;
+    const val = ctx.parsed.y;
+    const idx = ctx.dataIndex;
+    if (dsLabel.includes('현재가')) {
+      const d = getRowAtIdx(idx);
+      if (d && d.high != null && d.low != null) {
+        return [
+          ` 시가 : ${(d.open ?? d.price).toLocaleString()}원`,
+          ` 고가 : ${d.high.toLocaleString()}원`,
+          ` 저가 : ${d.low.toLocaleString()}원`,
+          ` 종가 : ${d.price.toLocaleString()}원`
+        ];
+      }
+      return ` 현재가 : ${val != null ? val.toLocaleString() + '원' : '-'}`;
+    }
+    return ` ${dsLabel} : ${val != null ? val.toLocaleString() : '-'}`;
+  };
+}
+
+// X축 ticks 콜백 — YYYY-MM-DD → YY/MM/DD
+function _xTickFormatter(val) {
+  const label = this.getLabelForValue(val);
+  if (!label) return '';
+  const p = label.split('-');
+  if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
+  return label;
+}
+
+// Chart.js options 빌더 — 메인/인라인 차트의 공통 옵션을 한 곳에서 생성
+function buildChartOptions({
+  waveMarkers,
+  tooltipDataSource,            // (idx) => row
+  zoom,
+  onClick,
+  yMin, yMax,
+  y1Min, y1Max,                 // 지정 시 y1 고정 범위, 미지정 시 자동
+  yAxisTitles = false,          // 메인 차트만 y축 라벨 표시
+  maxTicksLimit = 6,
+  smallTickFonts = false,       // 인라인 차트는 size:10
+  animationDuration,
+}) {
+  const yTickFont = smallTickFonts ? { font: { size: 10 } } : {};
+  const yAxis = {
+    type: 'linear', position: 'left',
+    grid: { color: '#2e2c29' },
+    suggestedMin: yMin,
+    suggestedMax: yMax,
+    ticks: { callback: v => v.toLocaleString(), ...yTickFont },
+    ...(yAxisTitles ? { title: { display: true, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } } } : {})
+  };
+  const y1Axis = {
+    type: 'linear', position: 'right',
+    grid: { drawOnChartArea: false },
+    ticks: { callback: v => v.toLocaleString(), ...yTickFont },
+    ...(y1Min !== undefined ? { min: y1Min, max: y1Max } : {}),
+    ...(yAxisTitles ? { title: { display: true, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } } } : {})
+  };
+
+  const options = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      waveMarkers,
+      zoom,
+      tooltip: {
+        backgroundColor: '#232220',
+        borderColor: '#3d3b37', borderWidth: 1,
+        titleColor: '#9d9a93', bodyColor: '#f0ece4',
+        padding: 10,
+        callbacks: { label: makePriceTooltipLabel(tooltipDataSource) }
+      },
+      legend: { display: false },
+    },
+    interaction: { mode: 'index', intersect: true },
+    scales: {
+      x: {
+        offset: true,
+        grid: { color: '#2e2c29' },
+        ticks: {
+          maxTicksLimit,
+          minRotation: 0, maxRotation: 0,
+          autoSkip: true, autoSkipPadding: 30,
+          font: { size: 10 },
+          callback: _xTickFormatter,
+        }
+      },
+      y: yAxis,
+      y1: y1Axis
+    }
+  };
+  if (onClick) options.onClick = onClick;
+  if (animationDuration !== undefined) options.animation = { duration: animationDuration };
+  return options;
+}
+
 // 트레이딩뷰처럼 보이는 x 범위에 맞게 y축 자동 조정
 function autoScaleY(chart) {
   const xScale = chart.scales.x;
@@ -1841,8 +1995,8 @@ function autoScaleY(chart) {
   }
 
   if (visiblePrices.length > 0) {
-    const minP = Math.min(...visiblePrices);
-    const maxP = Math.max(...visiblePrices);
+    const minP = arrMin(visiblePrices);
+    const maxP = arrMax(visiblePrices);
     const pad  = (maxP - minP) * 0.08 || minP * 0.05;
     // min/max 직접 설정 (suggestedMin/Max보다 우선 적용)
     yScale.options.min = Math.max(0, minP - pad);
@@ -1871,8 +2025,8 @@ function resetYScale(chart) {
   }
 
   if (allPrices.length > 0) {
-    const minP = Math.min(...allPrices);
-    const maxP = Math.max(...allPrices);
+    const minP = arrMin(allPrices);
+    const maxP = arrMax(allPrices);
     const pad  = (maxP - minP) * 0.5 || minP * 0.1;
     // min/max와 suggestedMin/Max 모두 초기화
     yScale.options.min         = undefined;
@@ -2014,14 +2168,16 @@ document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
     if (isTable) {
       document.querySelectorAll('.global-period-btn').forEach(b => b.classList.remove('active'));
       this.classList.add('active');
-      dates = [...new Set(allParsedData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
+      dates = allDates;
     } else {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
       const input = document.getElementById('searchInput');
       code = input.dataset.selectedCode || input.value.trim();
       if (!code) return showMsg("종목을 검색하여 선택하세요.", true);
-      const stockData = allParsedData.filter(d => d.code === code);
+      const stockData = stockByCode.get(code) || [];
       if (!stockData.length) return showMsg("데이터가 없습니다.", true);
-      dates = [...new Set(stockData.map(d => d.date))].sort((a,b) => new Date(a)-new Date(b));
+      dates = [...new Set(stockData.map(d => d.date))].sort();
     }
 
     const daysAttr = this.dataset.days;
@@ -2038,13 +2194,12 @@ document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
     } else if (daysAttr === 'thisYear') {
       let endIdx = dates.length - 1;
       if (endVal) {
-        const t = new Date(endVal).getTime();
-        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+        for (let i = dates.length-1; i >= 0; i--) { if (dates[i] <= endVal) { endIdx = i; break; } }
       }
       let startIdx = 0;
-      const currentMaxYear = new Date(dates[endIdx]).getFullYear();
+      const currentMaxYear = dates[endIdx].slice(0, 4);
       for(let i = endIdx; i >= 0; i--) {
-        if(new Date(dates[i]).getFullYear() < currentMaxYear) {
+        if (dates[i].slice(0, 4) < currentMaxYear) {
           startIdx = i;
           break;
         }
@@ -2059,8 +2214,7 @@ document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
     } else if (daysAttr === 'today') {
       let endIdx = dates.length - 1;
       if (endVal) {
-        const t = new Date(endVal).getTime();
-        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+        for (let i = dates.length-1; i >= 0; i--) { if (dates[i] <= endVal) { endIdx = i; break; } }
       }
       const startIdx = Math.max(0, endIdx - 1);
       if (isTable) {
@@ -2074,8 +2228,7 @@ document.querySelectorAll('.period-btn, .global-period-btn').forEach(btn => {
       const days = +daysAttr;
       let endIdx = dates.length - 1;
       if (endVal) {
-        const t = new Date(endVal).getTime();
-        for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+        for (let i = dates.length-1; i >= 0; i--) { if (dates[i] <= endVal) { endIdx = i; break; } }
       }
       const startIdx = Math.max(0, endIdx - days);
       if (isTable) {
@@ -2125,18 +2278,17 @@ function searchAndRender() {
   if (!allParsedData.length) return showMsg("CSV 파일을 업로드하세요.", true);
   hideMsg();
 
-  // 1. 전체 데이터 추출 및 날짜순 정렬
-  const full = allParsedData.filter(d => d.code === code);
+  // 1. 전체 데이터 추출 (이미 buildStockIndex에서 날짜순 정렬됨)
+  const full = stockByCode.get(code) || [];
   if (!full.length) return showMsg("해당 종목 데이터가 없습니다.", true);
-  full.sort((a,b) => new Date(a.date) - new Date(b.date));
 
   // 2. 전체 데이터를 기준으로 진짜 파동의 위치를 완벽하게 '사전 계산'
   const fullWaveMarkers = calculateWaves(full);
 
   // 3. 차트에 보여줄 데이터만 기간 필터링
   let data = [...full];
-  if (start) data = data.filter(d => new Date(d.date) >= new Date(start));
-  if (end)   data = data.filter(d => new Date(d.date) <= new Date(end));
+  if (start) data = data.filter(d => d.date >= start);
+  if (end)   data = data.filter(d => d.date <= end);
   if (!data.length) { document.getElementById('exportBtn').style.display='none'; return showMsg("선택 기간 내 데이터가 없습니다.", true); }
 
   currentFilteredData = data;
@@ -2149,9 +2301,11 @@ function searchAndRender() {
   if (_hlBadge) _hlBadge.style.display = _hasHL ? '' : 'none';
   
   // 4. 필터링된 데이터 영역 안에 사전 계산해둔 진짜 파동이 존재하는지 매핑하여 추출
+  const dateToIdx = new Map();
+  for (let i = 0; i < full.length; i++) dateToIdx.set(full[i].date, i);
   const filteredWaveMarkers = currentFilteredData.map(d => {
-    const idx = full.findIndex(fd => fd.date === d.date);
-    return idx !== -1 ? fullWaveMarkers[idx] : null;
+    const idx = dateToIdx.get(d.date);
+    return idx !== undefined ? fullWaveMarkers[idx] : null;
   });
   
   renderMainChart(data, data.map(d=>d.accounts), filteredWaveMarkers);
@@ -2162,49 +2316,31 @@ function searchAndRender() {
 }
 
 function renderMainChart(data, accountsData, waveMarkers) {
-  // 캔버스에 남아있는 모든 Chart 인스턴스 완전 제거
-  const canvasEl = document.getElementById('combinedChart');
-  const existingChart = Chart.getChart(canvasEl);
-  if (existingChart) existingChart.destroy();
   if (combinedChartInstance) { combinedChartInstance.destroy(); combinedChartInstance = null; }
+  const newCanvas = recreateCanvas(document.getElementById('combinedChart'));
 
-  const parent = canvasEl.parentElement;
-  canvasEl.remove();
-  const newCanvas = document.createElement('canvas');
-  newCanvas.id = 'combinedChart';
-  parent.appendChild(newCanvas);
-  _blockWheelScroll(newCanvas);
-  const ctx = newCanvas.getContext('2d');
-
-  const labels   = data.map(d => d.date);
+  const labels    = data.map(d => d.date);
   const priceData = data.map(d => d.price);
-  
-  // OHLC 데이터 유무 검사 (일부만 있어도 봉차트 모드로 진입)
-  // open 없어도 high+low만 있으면 봉차트 (open은 price로 대체)
-  const hasOHLC  = data.some(d => d.high != null && d.low != null);
 
-  const minP = Math.min(...priceData), maxP = Math.max(...priceData);
+  // OHLC 데이터 유무 검사 (open 없어도 high+low만 있으면 봉차트, open은 price로 대체)
+  const hasOHLC = data.some(d => d.high != null && d.low != null);
+
+  const minP = arrMin(priceData), maxP = arrMax(priceData);
   const range = maxP - minP;
   const pad = range === 0 ? minP * 0.1 : range * 0.5;
 
-  // y1축 고정 범위 계산 (전체 데이터 기준, 줌해도 절대 변하지 않음)
-  const allAccounts = accountsData.filter(v => v != null);
-  const minA = allAccounts.length ? Math.min(...allAccounts) : 0;
-  const maxA = allAccounts.length ? Math.max(...allAccounts) : 1;
+  // y1축 고정 범위 (줌/패닝해도 변하지 않음)
+  const minA = accountsData.length ? arrMin(accountsData) : 0;
+  const maxA = accountsData.length ? arrMax(accountsData) : 1;
   const padA = (maxA - minA) * 0.5 || minA * 0.1;
-  const y1Min = Math.max(0, minA - padA);
-  const y1Max = maxA + padA;
 
-  // 봉차트 데이터 생성 (값이 없으면 종가로 대체하여 선형태로라도 보존)
-  const candleData = hasOHLC ? data.map(d => ({
-    x: d.date,
-    o: d.open  ?? d.price,
-    h: d.high  ?? d.price,
-    l: d.low   ?? d.price,
-    c: d.price
+  // 봉차트 데이터 (값 누락 시 종가로 대체)
+  // ★ new Chart() 이전에 _globalCandleData 설정 필수 (플러그인이 첫 렌더링 시 읽음)
+  _globalCandleData = hasOHLC ? data.map(d => ({
+    x: d.date, o: d.open ?? d.price, h: d.high ?? d.price, l: d.low ?? d.price, c: d.price
   })) : null;
 
-  // 가격 dataset: 선차트로 설정해두고 플러그인에서 봉을 그림 (선은 투명 처리)
+  // 봉차트 모드면 선은 투명 처리 (플러그인이 봉을 직접 그림)
   const priceDataset = {
     label: '현재가', data: priceData,
     backgroundColor: hasOHLC ? 'rgba(0,0,0,0)' : 'rgba(232,160,32,0.12)',
@@ -2214,10 +2350,65 @@ function renderMainChart(data, accountsData, waveMarkers) {
     fill: !hasOHLC, tension: 0.2, yAxisID: 'y'
   };
 
-  // ★ new Chart() 이전에 반드시 설정 (첫 렌더링 시 플러그인이 바로 읽어야 함)
-  _globalCandleData = hasOHLC ? candleData : null;
+  const options = buildChartOptions({
+    waveMarkers,
+    tooltipDataSource: idx => currentFilteredData[idx],
+    zoom: {
+      pan: {
+        enabled: true, mode: 'x',
+        threshold: 10,  // 10px 이상 드래그해야 pan 인식 (스크롤 오작동 방지)
+        onPanComplete({ chart }) {
+          const xScale = chart.scales.x;
+          const total = (chart.data.datasets[0]?.data?.length ?? 0) - 1;
+          if (xScale.min > 0 || xScale.max < total) {
+            document.getElementById('resetZoomBtn').style.display = 'inline-flex';
+            autoScaleY(chart);
+          } else {
+            resetYScale(chart);
+            chart.update('none');
+          }
+        }
+      },
+      zoom: {
+        wheel: { enabled: true, speed: 0.1 },
+        pinch: { enabled: true },
+        mode: 'x',
+        onZoom({ chart }) {
+          document.getElementById('resetZoomBtn').style.display = 'inline-flex';
+          autoScaleY(chart);
+        },
+        onZoomComplete({ chart }) { autoScaleY(chart); }
+      },
+      limits: { x: { minRange: 5 } }
+    },
+    onClick(event, elements, chart) {
+      if (!elements.length) return;
+      const date = chart.data.labels[elements[0].index];
+      if (chartClickStep === 0) {
+        document.getElementById('startDateInput').value = date;
+        document.getElementById('endDateInput').value = '';
+        chartClickStep = 1;
+      } else {
+        const sv = document.getElementById('startDateInput').value;
+        if (date < sv) {
+          document.getElementById('startDateInput').value = date;
+          document.getElementById('endDateInput').value = sv;
+        } else {
+          document.getElementById('endDateInput').value = date;
+        }
+        chartClickStep = 0;
+        searchAndRender();
+      }
+    },
+    yMin: Math.max(0, minP - pad),
+    yMax: maxP + pad,
+    y1Min: Math.max(0, minA - padA),
+    y1Max: maxA + padA,
+    yAxisTitles: true,
+    maxTicksLimit: 6,
+  });
 
-  combinedChartInstance = new Chart(ctx, {
+  combinedChartInstance = new Chart(newCanvas.getContext('2d'), {
     type: 'line',
     data: {
       labels,
@@ -2226,129 +2417,12 @@ function renderMainChart(data, accountsData, waveMarkers) {
         {
           label: '보유계좌수', data: accountsData,
           backgroundColor: 'rgba(56,189,248,0.08)', borderColor: '#38bdf8',
-          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, pointHoverRadius: 4, fill: false, tension: 0.2, yAxisID: 'y1'
+          borderWidth: 2, pointRadius: 0, pointHitRadius: 5, pointHoverRadius: 4,
+          fill: false, tension: 0.2, yAxisID: 'y1'
         }
       ]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        waveMarkers: waveMarkers,
-        zoom: {
-          pan: {
-            enabled: true, mode: 'x',
-            threshold: 10,  // 10px 이상 드래그해야 pan 인식 (스크롤 오작동 방지)
-            onPanComplete: function({ chart }) {
-              const xScale = chart.scales.x;
-              const total = (chart.data.datasets[0]?.data?.length ?? 0) - 1;
-              if (xScale.min > 0 || xScale.max < total) {
-                document.getElementById('resetZoomBtn').style.display = 'inline-flex';
-                autoScaleY(chart);
-              } else {
-                resetYScale(chart);
-                chart.update('none');
-              }
-            }
-          },
-          zoom: {
-            wheel: { enabled: true, speed: 0.1 },
-            pinch:  { enabled: true },
-            mode:   'x',
-            onZoom({ chart }) {
-              document.getElementById('resetZoomBtn').style.display = 'inline-flex';
-              autoScaleY(chart);
-            },
-            onZoomComplete({ chart }) { autoScaleY(chart); }
-          },
-          limits: { x: { minRange: 5 } }
-        },
-        tooltip: {
-          backgroundColor: '#232220',
-          borderColor: '#3d3b37', borderWidth: 1,
-          titleColor: '#9d9a93', bodyColor: '#f0ece4',
-          padding: 10,
-          callbacks: {
-            label: function(ctx) {
-              const dsLabel = ctx.dataset.label;
-              const val = ctx.parsed.y;
-              const idx = ctx.dataIndex;
-              
-              if (dsLabel.includes('현재가')) {
-                const d = currentFilteredData[idx]; 
-                if (d && d.high != null && d.low != null) {
-                  return [
-                    ` 시가 : ${(d.open ?? d.price).toLocaleString()}원`,
-                    ` 고가 : ${d.high.toLocaleString()}원`,
-                    ` 저가 : ${d.low.toLocaleString()}원`,
-                    ` 종가 : ${d.price.toLocaleString()}원`
-                  ];
-                }
-                return ` 현재가 : ${val != null ? val.toLocaleString() + '원' : '-'}`;
-              }
-              return ` ${dsLabel} : ${val != null ? val.toLocaleString() : '-'}`;
-            }
-          }
-        },
-        legend: { display: false },
-      },
-      // 5px 이내에서만 작동하며 중복 출력을 방지하는 index 모드 강제
-      interaction: { mode: 'index', intersect: true },
-      onClick(event, elements, chart) {
-        if (!elements.length) return;
-        const date = chart.data.labels[elements[0].index];
-        if (chartClickStep === 0) {
-          document.getElementById('startDateInput').value = date;
-          document.getElementById('endDateInput').value = '';
-          chartClickStep = 1;
-        } else {
-          const sv = document.getElementById('startDateInput').value;
-          if (new Date(date) < new Date(sv)) {
-            document.getElementById('startDateInput').value = date;
-            document.getElementById('endDateInput').value = sv;
-          } else {
-            document.getElementById('endDateInput').value = date;
-          }
-          chartClickStep = 0;
-          searchAndRender();
-        }
-      },
-      scales: {
-        x: { 
-          offset: true, // 💡 [해결] 💡 가장자리 데이터 잘림 방지 (양 끝에 여백 추가)
-          grid: { color: '#2e2c29' }, 
-          ticks: {
-            maxTicksLimit: 6,
-            minRotation: 0,
-            maxRotation: 0,
-            autoSkip: true,
-            autoSkipPadding: 30,
-            font: { size: 10 },
-            callback: function(val) {
-              const label = this.getLabelForValue(val);
-              if (!label) return '';
-              const p = label.split('-');
-              if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
-              return label;
-            }
-          }
-        },
-        y: {
-          type: 'linear', position: 'left',
-          title: { display: true, text: '현재가 (원)', color: '#e8a020', font: { size: 11 } },
-          grid: { color: '#2e2c29' },
-          suggestedMin: Math.max(0, minP - pad),
-          suggestedMax: maxP + pad,
-          ticks: { callback: v => v.toLocaleString() }
-        },
-        y1: {
-          type: 'linear', position: 'right',
-          min: y1Min, max: y1Max,  // 고정값 — 줌/패닝해도 절대 변하지 않음
-          title: { display: true, text: '보유계좌수', color: '#38bdf8', font: { size: 11 } },
-          grid: { drawOnChartArea: false },
-          ticks: { callback: v => v.toLocaleString() }
-        }
-      }
-    },
+    options,
     plugins: [candlestickPlugin, waveDrawerPlugin]
   });
   if (hasOHLC) combinedChartInstance._isCandleChart = true;
@@ -2363,7 +2437,7 @@ function updateCheckboxSummaries() {
 
   if (!code || !allParsedData.length) { container.classList.remove('visible'); return; }
 
-  const full = allParsedData.filter(d => d.code === code);
+  const full = stockByCode.get(code) || [];
   if (!full.length) return;
 
   const maxAcc = full.reduce((m,d) => d.accounts > m ? d.accounts : m, 0);
@@ -2388,12 +2462,11 @@ function updateCheckboxSummaries() {
     }));
   }
 
-  const dates = [...new Set(full.map(d=>d.date))].sort((a,b)=>new Date(a)-new Date(b));
+  const dates = [...new Set(full.map(d=>d.date))].sort();
   const endVal = document.getElementById('endDateInput').value;
   let endIdx = dates.length - 1;
   if (endVal) {
-    const t = new Date(endVal).getTime();
-    for (let i = dates.length-1; i >= 0; i--) { if (new Date(dates[i]).getTime() <= t) { endIdx = i; break; } }
+    for (let i = dates.length-1; i >= 0; i--) { if (dates[i] <= endVal) { endIdx = i; break; } }
   }
 
   checked.forEach(chk => {
@@ -2403,10 +2476,10 @@ function updateCheckboxSummaries() {
     if (attr === 'all') {
       startIdx = 0;
     } else if (attr === 'thisYear') {
-      const currentMaxYear = new Date(dates[endIdx]).getFullYear();
+      const currentMaxYear = dates[endIdx].slice(0, 4);
       startIdx = endIdx;
       for (let i = endIdx; i >= 0; i--) {
-        if (new Date(dates[i]).getFullYear() < currentMaxYear) {
+        if (dates[i].slice(0, 4) < currentMaxYear) {
           startIdx = i;
           break;
         }
@@ -2471,9 +2544,9 @@ document.getElementById('addTableStockBtn').addEventListener('click', () => {
   const start = document.getElementById('globalStartDate').value;
   const end   = document.getElementById('globalEndDate').value;
   if (!start || !end) { showMsg("비교 시작일과 종료일을 선택하세요.", true); return; }
-  if (new Date(start) > new Date(end)) { showMsg("시작일이 종료일보다 늦을 수 없습니다.", true); return; }
+  if (start > end) { showMsg("시작일이 종료일보다 늦을 수 없습니다.", true); return; }
   if (!code) { showMsg("추가할 종목을 검색하여 선택하세요.", true); return; }
-  if (!allParsedData.some(d => d.code === code)) { showMsg(`'${code}' 데이터가 없습니다.`, true); return; }
+  if (!stockByCode.has(code)) { showMsg(`'${code}' 데이터가 없습니다.`, true); return; }
   if (tableSelectedStocks.has(code)) { showMsg("이미 추가된 종목입니다.", true); return; }
   tableSelectedStocks.add(code);
   input.value = '';
@@ -2500,7 +2573,7 @@ document.getElementById('batchStockFileInput').addEventListener('change', functi
       results.data.slice(1).forEach(row => {
         const code = (row[0]||'').replace(/['"]/g,'').trim();
         if (!code) return;
-        if (allParsedData.some(d => d.code === code)) {
+        if (stockByCode.has(code)) {
           if (!tableSelectedStocks.has(code)) { tableSelectedStocks.add(code); added++; }
         } else { missing++; }
       });
@@ -2556,135 +2629,72 @@ function toggleTableChart(code) {
 function renderTableInlineChart(code) {
   const start = document.getElementById('globalStartDate').value;
   const end   = document.getElementById('globalEndDate').value;
-  const validDates = [...new Set(allParsedData.map(d=>d.date))]
-    .filter(d => d >= start && d <= end)
-    .sort((a,b) => new Date(a)-new Date(b));
+  const validDates = allDates.filter(d => d >= start && d <= end);
   if (!validDates.length) return;
 
   const s = validDates[0], e = validDates.at(-1);
 
-  // 1. 전체 데이터 추출 및 정렬
-  const fullData = allParsedData.filter(d => d.code === code);
-  fullData.sort((a,b) => new Date(a.date)-new Date(b.date));
-  
-  // 2. 파동 사전 계산
+  // 1. 전체 데이터 + 파동 사전 계산
+  const fullData = stockByCode.get(code) || [];
+  if (!fullData.length) return;
   const fullWaveMarkers = calculateWaves(fullData);
 
-  // 3. 렌더링 데이터 필터링
-  let data = fullData.filter(d => d.date >= s && d.date <= e);
+  // 2. 뷰포트 데이터 필터링
+  const data = fullData.filter(d => d.date >= s && d.date <= e);
   if (!data.length) return;
 
-  let canvas = document.getElementById(`table-chart-${code}`);
-  if (!canvas) return;
-  const existingInline = Chart.getChart(canvas);
-  if (existingInline) existingInline.destroy();
+  // 3. 인스턴스 + 캔버스 정리
   if (tableChartInstances[code]) { tableChartInstances[code].destroy(); delete tableChartInstances[code]; }
-  // 캔버스 교체
-  const inlineParent = canvas.parentElement;
-  canvas.remove();
-  canvas = document.createElement('canvas');
-  canvas.id = `table-chart-${code}`;
-  inlineParent.appendChild(canvas);
-  _blockWheelScroll(canvas);
+  const canvasEl = document.getElementById(`table-chart-${code}`);
+  if (!canvasEl) return;
+  const newCanvas = recreateCanvas(canvasEl);
 
-  const priceData = data.map(d=>d.price);
-  const minP = Math.min(...priceData), maxP = Math.max(...priceData);
+  const priceData = data.map(d => d.price);
+  const minP = arrMin(priceData), maxP = arrMax(priceData);
   const range = maxP - minP;
   const pad = range === 0 ? minP * .1 : range * .5;
-  
-  const hasOHLC = data.some(d => d.open != null && d.high != null && d.low != null);
-  const candleData = hasOHLC ? data.map(d => ({
-    x: d.date, o: d.open ?? d.price, h: d.high ?? d.price, l: d.low ?? d.price, c: d.price
-  })) : null;
 
-  // 4. 뷰포트 내 파동만 추출
+  // 4. 뷰포트 내 파동만 추출 (date→idx Map으로 O(n+m))
+  const dateToIdx = new Map();
+  for (let i = 0; i < fullData.length; i++) dateToIdx.set(fullData[i].date, i);
   const filteredWaveMarkers = data.map(d => {
-    const idx = fullData.findIndex(fd => fd.date === d.date);
-    return idx !== -1 ? fullWaveMarkers[idx] : null;
+    const idx = dateToIdx.get(d.date);
+    return idx !== undefined ? fullWaveMarkers[idx] : null;
   });
 
-  tableChartInstances[code] = new Chart(canvas.getContext('2d'), {
+  const options = buildChartOptions({
+    waveMarkers: filteredWaveMarkers,
+    tooltipDataSource: idx => data[idx],
+    zoom: _makeZoomOptions(code),
+    yMin: Math.max(0, minP - pad),
+    yMax: maxP + pad,
+    maxTicksLimit: 5,
+    smallTickFonts: true,
+    animationDuration: 300,
+  });
+
+  tableChartInstances[code] = new Chart(newCanvas.getContext('2d'), {
     type: 'line',
     data: {
-      labels: data.map(d=>d.date),
+      labels: data.map(d => d.date),
       datasets: [
-        { 
-          label:'현재가', data: priceData, 
-          borderColor: '#e8a020', 
-          backgroundColor: 'rgba(232,160,32,0.1)', 
-          borderWidth: 1.5, 
-          pointRadius:0, pointHitRadius:5, pointHoverRadius:4, 
-          fill: true, tension:0.2, yAxisID:'y' 
+        {
+          label: '현재가', data: priceData,
+          borderColor: '#e8a020', backgroundColor: 'rgba(232,160,32,0.1)',
+          borderWidth: 1.5, pointRadius: 0, pointHitRadius: 5, pointHoverRadius: 4,
+          fill: true, tension: 0.2, yAxisID: 'y'
         },
-        { 
-          label:'보유계좌수', data: data.map(d=>d.accounts), 
-          borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.05)', 
-          borderWidth:1.5, pointRadius:0, pointHitRadius:5, pointHoverRadius:4, fill:false, tension:0.2, yAxisID:'y1' 
+        {
+          label: '보유계좌수', data: data.map(d => d.accounts),
+          borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.05)',
+          borderWidth: 1.5, pointRadius: 0, pointHitRadius: 5, pointHoverRadius: 4,
+          fill: false, tension: 0.2, yAxisID: 'y1'
         }
       ]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
-      plugins: {
-        legend:{display:false},
-        tooltip: {
-          backgroundColor:'#232220', borderColor:'#3d3b37', borderWidth:1,
-          callbacks: {
-            // 🔥 인라인 차트도 동일한 툴팁 포맷 적용 🔥
-            label: function(ctx) {
-              const dsLabel = ctx.dataset.label;
-              const val = ctx.parsed.y;
-              const idx = ctx.dataIndex;
-              
-              if (dsLabel.includes('현재가')) {
-                const d = data[idx];
-                if (d && d.high != null && d.low != null) {
-                  return [
-                    ` 시가 : ${(d.open ?? d.price).toLocaleString()}원`,
-                    ` 고가 : ${d.high.toLocaleString()}원`,
-                    ` 저가 : ${d.low.toLocaleString()}원`,
-                    ` 종가 : ${d.price.toLocaleString()}원`
-                  ];
-                }
-                return ` 현재가 : ${val != null ? val.toLocaleString() + '원' : '-'}`;
-              }
-              return ` ${dsLabel} : ${val != null ? val.toLocaleString() : '-'}`;
-            }
-          }
-        },
-        waveMarkers: filteredWaveMarkers,
-        zoom: _makeZoomOptions(code)
-      },
-      interaction: { mode: 'index', intersect: true },
-      scales: {
-        x: { 
-          offset: true, // 💡 [해결] 💡 인라인 차트도 가장자리 잘림 방지 여백 추가
-          grid:{color:'#2e2c29'}, 
-          ticks:{
-            maxTicksLimit: 5,
-            minRotation: 0, 
-            maxRotation: 0, 
-            autoSkip: true, 
-            autoSkipPadding: 30,
-            font:{size:10},
-            callback: function(val) {
-              const label = this.getLabelForValue(val);
-              if (!label) return '';
-              const p = label.split('-');
-              if (p.length === 3) return p[0].slice(-2) + '/' + p[1] + '/' + p[2];
-              return label;
-            }
-        }},
-        y: { position:'left', grid:{color:'#2e2c29'}, suggestedMin:Math.max(0,minP-pad), suggestedMax:maxP+pad, ticks:{font:{size:10},callback:v=>v.toLocaleString()} },
-        y1:{ position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:10},callback:v=>v.toLocaleString()} }
-      }
-    },
+    options,
     plugins: [waveDrawerPlugin] // 인라인 차트는 선차트만
   });
-
-  if (hasOHLC) {
-    tableChartInstances[code]._candleData = candleData;
-  }
 }
 
 function renderGlobalTable() {
@@ -2702,9 +2712,7 @@ function renderGlobalTable() {
     return;
   }
 
-  const validDates = [...new Set(allParsedData.map(d=>d.date))]
-    .filter(d => d >= start && d <= end)
-    .sort((a,b) => new Date(a)-new Date(b));
+  const validDates = allDates.filter(d => d >= start && d <= end);
 
   if (!validDates.length) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="10" style="color:var(--red)">지정 기간 내 유효한 영업일 데이터가 없습니다.</td></tr>`;
@@ -2733,7 +2741,7 @@ function renderGlobalTable() {
 
   const rows = [];
   tableSelectedStocks.forEach(code => {
-    const records = allParsedData.filter(d => d.code === code);
+    const records = stockByCode.get(code) || [];
     if (!records.length) return;
     const name   = stockIndex.get(code)?.recentName || records[0].name;
     const minAcc = records.reduce((m,d) => d.accounts<m?d.accounts:m, records[0].accounts);
