@@ -42,6 +42,9 @@
   --red:       #f05c5c;
   --red-dim:   rgba(240,92,92,0.12);
 
+  /* ── 현매집률 뱃지 ── */
+  #currentAccBadge.up   { background:rgba(46,204,142,0.15); color:#2ecc8e; border:1px solid rgba(46,204,142,0.3); }
+  #currentAccBadge.down { background:rgba(240,92,92,0.15);  color:#f05c5c; border:1px solid rgba(240,92,92,0.3); }
   /* ── 일 매집률: 스카이 시안 ── */
   --purple:    #38bdf8;
   --purple-dim:rgba(56,189,248,0.12);
@@ -888,6 +891,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
     <div class="chart-title-bar">
       <span class="chart-title-text" id="combinedChartTitle">종목 추이 종합</span>
       <span id="hlBadge" style="display:none;font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(46,204,142,0.15);color:#2ecc8e;border:1px solid rgba(46,204,142,0.3);margin-left:6px;">📊 봉차트 적용중</span>
+      <span id="currentAccBadge" style="display:none;font-size:11px;padding:3px 10px;border-radius:10px;margin-left:8px;font-weight:700;"></span>
       <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);align-items:center;">
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#e8a020;display:inline-block;border-radius:2px"></span>현재가</span>
         <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:3px;background:#38bdf8;display:inline-block;border-radius:2px"></span>보유계좌수</span>
@@ -902,7 +906,7 @@ td.val-purple-down { color: var(--red); font-family: 'JetBrains Mono', monospace
   <div class="summary-box" id="summaryContainer">
     <div class="summary-header">
       <span class="summary-header-title">📊 기간 매집 요약 지표</span>
-      <span class="summary-max">전체 기간 최대 보유계좌수: <b id="summaryMaxAccounts">-</b> 계좌 <span id="summaryMaxAccDate" style="font-size:11px;color:var(--text3);margin-left:4px;"></span></span>
+      <span class="summary-max">전체 기간 최대 보유계좌수: <b id="summaryMaxAccounts">-</b> 계좌</span>
     </div>
     <div class="summary-grid" id="summaryMetricsList"></div>
   </div>
@@ -1027,8 +1031,6 @@ Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans KR', sans-serif";
 const candlestickPlugin = {
   id: 'candlestickPlugin',
   afterDatasetsDraw(chart) {
-    // 메인 차트만 봉차트 적용 (인라인 차트는 _isCandleChart 플래그로 구분)
-    if (!chart._isCandleChart) return;
     const ohlcData = _globalCandleData;
     if (!ohlcData || !ohlcData.length) return;
 
@@ -2351,7 +2353,7 @@ function renderMainChart(data, accountsData, waveMarkers) {
     },
     plugins: [candlestickPlugin, waveDrawerPlugin]
   });
-  if (hasOHLC) combinedChartInstance._isCandleChart = true;
+  
 }
 
 function updateCheckboxSummaries() {
@@ -2367,22 +2369,17 @@ function updateCheckboxSummaries() {
   if (!full.length) return;
 
   const maxAcc = full.reduce((m,d) => d.accounts > m ? d.accounts : m, 0);
-  const maxAccDay = full.find(d => d.accounts === maxAcc);
   document.getElementById('summaryMaxAccounts').textContent = maxAcc.toLocaleString();
-  const maxAccDateEl = document.getElementById('summaryMaxAccDate');
-  if (maxAccDateEl) maxAccDateEl.textContent = maxAccDay ? `(${maxAccDay.date})` : '';
   list.innerHTML = '';
 
   if (currentFilteredData.length && maxAcc > 0) {
     const s = currentFilteredData[0], e = currentFilteredData.at(-1);
     const val = ((s.accounts - e.accounts) * 100) / maxAcc;
     const days = Math.max(0, currentFilteredData.length - 1);
-    const dailyRate = days > 0 ? val / days : 0;
     list.appendChild(makeSummaryCard({
       label: `달력 지정 기간 매집률 (${days}영업일)`,
       date: `${s.date} ~ ${e.date}`,
       value: val.toFixed(2) + '%',
-      subValue: `일 매집률 ${dailyRate >= 0 ? '+' : ''}${dailyRate.toFixed(2)}%`,
       valClass: val < 0 ? 'down' : 'up',
       highlight: true
     }));
@@ -2436,16 +2433,28 @@ function updateCheckboxSummaries() {
   });
 
   container.classList.toggle('visible', checked.length > 0 || currentFilteredData.length > 0);
+
+  // 현매집률 뱃지 - 기간 선택과 무관하게 항상 전체 데이터의 최신 날짜 기준
+  // (전체최대계좌수 - 최신계좌수) / 전체최대계좌수 × 100
+  const badge = document.getElementById('currentAccBadge');
+  if (badge && full.length >= 1 && maxAcc > 0) {
+    const latestR = full.at(-1);  // 전체 데이터 중 마지막(최신) 날짜
+    const cval = ((maxAcc - latestR.accounts) * 100) / maxAcc;
+    badge.textContent = `현매집률 ${cval.toFixed(0)}%`;
+    badge.className = cval >= 0 ? 'up' : 'down';
+    badge.style.display = 'inline-block';
+  } else if (badge) {
+    badge.style.display = 'none';
+  }
 }
 
-function makeSummaryCard({ label, date, value, valClass, highlight, subValue }) {
+function makeSummaryCard({ label, date, value, valClass, highlight }) {
   const div = document.createElement('div');
   div.className = 'summary-card' + (highlight ? ' highlight' : '');
   div.innerHTML = `
     <div class="summary-card-label">${label}</div>
     <div class="summary-card-date">${date}</div>
-    <div class="summary-card-value ${valClass}">${value}</div>
-    ${subValue ? `<div style="font-size:11px;color:var(--text2);margin-top:4px;">${subValue}</div>` : ''}`;
+    <div class="summary-card-value ${valClass}">${value}</div>`;
   return div;
 }
 
@@ -2610,11 +2619,11 @@ function renderTableInlineChart(code) {
       datasets: [
         { 
           label:'현재가', data: priceData, 
-          borderColor: '#e8a020', 
-          backgroundColor: 'rgba(232,160,32,0.1)', 
-          borderWidth: 1.5, 
-          pointRadius:0, pointHitRadius:5, pointHoverRadius:4, 
-          fill: true, tension:0.2, yAxisID:'y' 
+          borderColor: hasOHLC ? 'rgba(0,0,0,0)' : '#e8a020', 
+          backgroundColor: hasOHLC ? 'rgba(0,0,0,0)' : 'rgba(232,160,32,0.1)', 
+          borderWidth: hasOHLC ? 0 : 1.5, 
+          pointRadius:0, pointHitRadius:5, pointHoverRadius: hasOHLC ? 0 : 4, 
+          fill: !hasOHLC, tension:0.2, yAxisID:'y' 
         },
         { 
           label:'보유계좌수', data: data.map(d=>d.accounts), 
@@ -2679,7 +2688,7 @@ function renderTableInlineChart(code) {
         y1:{ position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:10},callback:v=>v.toLocaleString()} }
       }
     },
-    plugins: [waveDrawerPlugin] // 인라인 차트는 선차트만
+    plugins: [waveDrawerPlugin, candlestickPlugin] // 인라인 차트에도 봉차트 플러그인 적용
   });
 
   if (hasOHLC) {
