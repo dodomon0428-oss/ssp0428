@@ -2376,10 +2376,12 @@ function updateCheckboxSummaries() {
     const s = currentFilteredData[0], e = currentFilteredData.at(-1);
     const val = ((s.accounts - e.accounts) * 100) / maxAcc;
     const days = Math.max(0, currentFilteredData.length - 1);
+    const dailyRate = days > 0 ? val / days : 0;
     list.appendChild(makeSummaryCard({
       label: `달력 지정 기간 매집률 (${days}영업일)`,
       date: `${s.date} ~ ${e.date}`,
       value: val.toFixed(2) + '%',
+      subValue: `일 매집률 ${dailyRate >= 0 ? '+' : ''}${dailyRate.toFixed(2)}%`,
       valClass: val < 0 ? 'down' : 'up',
       highlight: true
     }));
@@ -2448,13 +2450,14 @@ function updateCheckboxSummaries() {
   }
 }
 
-function makeSummaryCard({ label, date, value, valClass, highlight }) {
+function makeSummaryCard({ label, date, value, valClass, highlight, subValue }) {
   const div = document.createElement('div');
   div.className = 'summary-card' + (highlight ? ' highlight' : '');
   div.innerHTML = `
     <div class="summary-card-label">${label}</div>
     <div class="summary-card-date">${date}</div>
-    <div class="summary-card-value ${valClass}">${value}</div>`;
+    <div class="summary-card-value ${valClass}">${value}</div>
+    ${subValue ? `<div style="font-size:11px;color:var(--text2);margin-top:4px;">${subValue}</div>` : ''}`;
   return div;
 }
 
